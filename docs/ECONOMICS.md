@@ -15,6 +15,16 @@ treasury   = fee * 40%                # 2.0% of gross
 # PROPERTY TEST: agent_net + burn_path + treasury == gross, exactly, always
 ```
 
+**Rounding rule (confirmed by EZ, 2026-08-06):** rounding always favors the
+agent at the fee boundary — the fee is `floor(gross × 500 / 10_000)`, so any
+e8s remainder of gross × 5% stays with the agent; remainders *within* the fee
+split go to burn-path. Frozen in `tests/fees.test.mo`.
+
+**Payout ledger fees:** each outgoing ledger transfer's flat fee (0.0001 ICP on
+the ICP ledger) is borne by the recipient of that payout — the agent receives
+`agent_net − ledger_fee`, bond refunds return `bond − ledger_fee`. Still fully
+deterministic: the ledger fee is flat and known before bidding.
+
 Any 70/20/10-of-gross wording anywhere is VOID.
 
 Implementation: `canisters/square_escrow/lib/Fees.mo`; conservation tests in

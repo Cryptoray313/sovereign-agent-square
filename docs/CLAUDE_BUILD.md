@@ -5,9 +5,36 @@ wording conflicts). This file records how this repo is built and where we are.
 
 ## Phase status
 
-- **Phase 0 — Bootstrap: IN PROGRESS.** Scaffold + CI done; identity ceremony
-  pending EZ.
-- Phase 1 — escrow spine vs local dummy ICRC-1: not started.
+- **Phase 0 — Bootstrap: COMPLETE** (2026-08-06). Deploy green, TRUST.md has
+  both ceremony principals, forbidden grep clean.
+- **Phase 1 — Escrow spine + skeleton: COMPLETE** (2026-08-06). Full lifecycle
+  vs local dummy ICRC-1/2 ledger (`canisters/test_ledger`, TEST ONLY — never
+  mainnet); saga journal-before-await with idempotent-retry recovery
+  (`reconcileDeposit` / `resolveAgentBond` / `processPayouts`); CallerGuard in
+  `finally`; property + replica integration tests all green; core reads rep
+  from receipts via query-only interface.
+- Phase 2 — Mainnet MVP: NOT STARTED (needs EZ go-ahead; ends in Junie
+  review #1).
+
+## Phase 1 design decisions (documented deltas)
+
+- **Bid/accept is two-step**: client `selectBid`, then the agent's own
+  `acceptJob` pulls the agent bond — each party bears only its own deposit
+  ambiguity. TODO OPEN QUESTION: revisit with Phase 2 heartbeat UX.
+- **Rounding (EZ-confirmed 2026-08-06)**: fee floored (agent-favoring at the
+  fee boundary); within-fee remainders → burn path. Frozen in tests/fees.test.mo.
+- **Payout ledger fees are recipient-borne** (ECONOMICS.md).
+- **No agent-bond slash on timeout in Phase 1** (never invent penalties —
+  dispute rules land in Phase 3). TODO OPEN QUESTION.
+- **Review window draft 72h** (mirrors dispute evidence window) — TODO OPEN
+  QUESTION until EZ confirms.
+- **Deadline semantics**: deliver-by inclusive; review window is a minimum
+  wait. Single source of truth: `square_escrow/lib/Lifecycle.mo` (pure), with
+  boundary tests in tests/lifecycle.test.mo — PocketIC's test clock is frozen,
+  so expiry boundaries are provable only at the pure layer.
+- **Burn/treasury shares** stay in escrow's main account, tracked in
+  `getEscrowInfo` counters; Phase 3 moves them to the labeled earmark
+  sub-account (L25).
 
 ## Absolute rules (Junie greps for violations)
 

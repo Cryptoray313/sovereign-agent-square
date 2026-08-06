@@ -8,8 +8,15 @@ func assertSplit(grossE8s : Nat) {
   let s = Fees.split(grossE8s, 500, 60);
   // PROPERTY (L11): agent_net + burn_path + treasury == gross, exactly, always.
   assert Fees.conserves(s);
-  // Remainders route to burn_path, never treasury: treasury is floored.
-  assert s.treasuryE8s <= s.feeE8s * 40 / 100;
+  // FROZEN (EZ 2026-08-06): fee is floored — agent-favoring at the fee
+  // boundary. fee == floor(gross * bps / 10_000), remainder stays with agent.
+  assert s.feeE8s * 10_000 <= grossE8s * 500;
+  assert (s.feeE8s + 1) * 10_000 > grossE8s * 500;
+  assert s.agentNetE8s == grossE8s - s.feeE8s;
+  // Remainders WITHIN the fee split route to burn_path, never treasury:
+  // treasury is floored at exactly floor(fee * 40 / 100), burn gets the rest.
+  assert s.treasuryE8s == s.feeE8s * 40 / 100;
+  assert s.burnPathE8s == s.feeE8s - s.treasuryE8s;
   assert s.burnPathE8s >= s.feeE8s * 60 / 100;
 };
 

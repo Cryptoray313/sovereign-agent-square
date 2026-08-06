@@ -14,7 +14,13 @@
     },
     "frontend_assets": {
       "type": "assets",
-      "source": ["canisters/frontend_assets/assets"]
+      "source": [
+        "canisters/frontend_assets/assets"
+      ]
+    },
+    "test_ledger": {
+      "type": "motoko",
+      "main": "canisters/test_ledger/main.mo"
     }
   },
   "defaults": {

@@ -23,3 +23,6 @@ main = "canisters/square_core/main.mo"
 
 [build]
 outputDir = ".mops/.build"
+
+[canisters.test_ledger]
+main = "canisters/test_ledger/main.mo"

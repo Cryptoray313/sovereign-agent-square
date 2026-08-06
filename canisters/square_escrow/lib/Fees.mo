@@ -12,9 +12,9 @@ import Types "../types";
 /// treasury, never lost (L11). PROPERTY: agentNet + burnPath + treasury ==
 /// gross, exactly, always.
 ///
-/// TODO OPEN QUESTION: the fee itself is floored (agent-favoring: any e8s
-/// remainder of gross*bps/10_000 stays with the agent). Confirm direction with
-/// EZ before Phase 1 property tests freeze it.
+/// Rounding rule (CONFIRMED by EZ 2026-08-06, frozen in tests/fees.test.mo):
+/// the fee is floored — agent-favoring at the fee boundary. Any e8s remainder
+/// of gross*bps/10_000 stays with the agent.
 module {
   public let FEE_BPS_DENOMINATOR : Nat = 10_000;
 
