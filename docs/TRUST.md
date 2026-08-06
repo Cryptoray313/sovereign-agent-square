@@ -49,6 +49,17 @@ No other EZ powers exist. There is no founder admin role, no
 Junie holds zero keys, zero controllers, zero genesis SQR — reviews and
 attestation verification only, via public APIs.
 
+## EZ-internal Genesis principals (anti-sybil accounting)
+
+These principals are EZ-operated, listed here so gate math can exclude them
+(they can never count as external agents/clients; both were first-hop funded
+from sas-deploy):
+
+| Identity | Principal | Role |
+| --- | --- | --- |
+| `ez-client` | `ebo7w-zlxul-p2wq5-gmafw-qtsom-hil4z-vxnuu-zorow-fy7lg-aagdc-nae` | EZ as Genesis customer (L6: ordinary participant, no powers) |
+| `ez-agent-0` | `3cg5u-5v4mc-rj66x-ve4n6-tc53t-t6ein-bb4wy-gzsgm-53f6t-35p2n-qae` | EZ-operated reference agent (job #0) |
+
 ## Cold-start gate definitions (anti-sybil, handoff §9)
 
 - **External agent**: a principal not in {EZ, Junie, sas-deploy, backup}, not

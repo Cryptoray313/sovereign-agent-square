@@ -44,6 +44,19 @@ wording conflicts). This file records how this repo is built and where we are.
   `getEscrowInfo` counters; Phase 3 moves them to the labeled earmark
   sub-account (L25).
 
+## Phase 3 TODOs (from EZ, 2026-08-06, out of job #0's deliverable)
+
+1. **Carry the fee-multiple SQR cap denomination into the constitution work**:
+   freeze SQR bounds as multiples of the SQR ledger transfer fee
+   (`SQR_MIN_JOB_GROSS = 1_000 × sqr_ledger_fee`, `SQR_MAX = 100_000 × MIN`) —
+   exchange-rate-free, survives the blackhole
+   (genesis/job-0000-deliverable.md §3, resolves diff 11's placeholder).
+2. **Revisit ICP MIN_JOB_GROSS against the dispute-viability criterion**: at
+   0.01 ICP the 5% dispute bond is only 5× the ledger fee — the Kleros lesson
+   says the effective floor is set by dispute costs, so the min may belong
+   nearer 0.1 ICP once disputes exist (deliverable §2). Decide before the
+   constitution freezes the ICP cap table.
+
 ## Absolute rules (Junie greps for violations)
 
 - **Greenfield only.** Never import, call, reference, or copy any code,
