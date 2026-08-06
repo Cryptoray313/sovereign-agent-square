@@ -8,11 +8,13 @@ violation (handoff §2).
 
 | Identity | Principal | Role |
 | --- | --- | --- |
-| `sas-deploy` | _pending identity ceremony_ | Deploy/controller identity until SNS success |
-| `backup` | _pending identity ceremony_ | Fallback controller until SNS success |
+| `sas-deploy` | `psypv-7zrh6-l3en6-gzwfk-unk2f-3hdbg-37fba-zibiz-ndsxp-wz4vv-dqe` | Deploy/controller identity until SNS success |
+| `backup` | `bf6mj-42vgy-chdtl-tjxdy-uvcyi-posce-kcbr4-l2hd2-dle4k-ld326-jqe` | Fallback controller until SNS success |
 
-Seed phrases are recorded OFF-DEVICE only (written down, offline). They are
-never stored in this repo, on this machine, or in any canister.
+Both identities were created fresh on 2026-08-06 (ceremony run by EZ in a
+separate terminal; seeds never entered any transcript). Seed phrases are
+recorded OFF-DEVICE only (written down, offline). They are never stored in
+this repo or in any canister; private keys live in the macOS keychain.
 
 ## Controllers roadmap (handoff §4.3)
 
