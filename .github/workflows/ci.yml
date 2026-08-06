@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install mops
+        run: npm install -g ic-mops@2.20.0
+      - name: Install dependencies + pinned toolchain
+        run: mops install --lock check
+      - name: Typecheck + lint
+        run: mops check
+      - name: Tests
+        run: mops test
+      - name: Forbidden-reference grep (handoff §2 / L8)
+        run: ./scripts/forbidden-grep.sh

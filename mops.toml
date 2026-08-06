@@ -1,0 +1,25 @@
+[toolchain]
+moc = "1.13.0"
+lintoko = "0.11.0"
+pocket-ic = "14.0.0"
+
+[dependencies]
+core = "2.5.0"
+
+[dev-dependencies]
+test = "2.1.1"
+
+[moc]
+args = ["-W=M0223,M0236,M0237"]
+
+[canisters.constitution]
+main = "canisters/constitution/main.mo"
+
+[canisters.square_escrow]
+main = "canisters/square_escrow/main.mo"
+
+[canisters.square_core]
+main = "canisters/square_core/main.mo"
+
+[build]
+outputDir = ".mops/.build"
