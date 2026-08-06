@@ -18,8 +18,9 @@ module {
     // Minimum distance of a job deadline from now. Tests may set 0.
     minDeadlineNs : Nat;
     // How long after `deliver` the client has to accept before the agent can
-    // claim release by timeout. TODO OPEN QUESTION: production value — using
-    // 72h to mirror the dispute evidence window until EZ confirms.
+    // claim release by timeout. CONFIRMED by EZ 2026-08-06: 72h (mirrors the
+    // dispute evidence window). Becomes an SNS-tunable operational value
+    // post-launch.
     reviewWindowNs : Nat;
   };
 

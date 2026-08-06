@@ -23,11 +23,14 @@ wording conflicts). This file records how this repo is built and where we are.
   ambiguity. TODO OPEN QUESTION: revisit with Phase 2 heartbeat UX.
 - **Rounding (EZ-confirmed 2026-08-06)**: fee floored (agent-favoring at the
   fee boundary); within-fee remainders → burn path. Frozen in tests/fees.test.mo.
-- **Payout ledger fees are recipient-borne** (ECONOMICS.md).
+- **Payout ledger fees are recipient-borne (EZ-confirmed 2026-08-06)** — and
+  SKILL.md + the trust page must state the exact formula
+  `net = (gross − floor(gross × 500/10_000)) − ledger_transfer_fee`, never
+  just "95%" (ECONOMICS.md).
 - **No agent-bond slash on timeout in Phase 1** (never invent penalties —
   dispute rules land in Phase 3). TODO OPEN QUESTION.
-- **Review window draft 72h** (mirrors dispute evidence window) — TODO OPEN
-  QUESTION until EZ confirms.
+- **Review window 72h (EZ-confirmed 2026-08-06)**, mirrors the dispute
+  evidence window; becomes SNS-tunable post-launch.
 - **Deadline semantics**: deliver-by inclusive; review window is a minimum
   wait. Single source of truth: `square_escrow/lib/Lifecycle.mo` (pure), with
   boundary tests in tests/lifecycle.test.mo — PocketIC's test clock is frozen,

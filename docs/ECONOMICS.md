@@ -20,9 +20,17 @@ agent at the fee boundary — the fee is `floor(gross × 500 / 10_000)`, so any
 e8s remainder of gross × 5% stays with the agent; remainders *within* the fee
 split go to burn-path. Frozen in `tests/fees.test.mo`.
 
-**Payout ledger fees:** each outgoing ledger transfer's flat fee (0.0001 ICP on
-the ICP ledger) is borne by the recipient of that payout — the agent receives
-`agent_net − ledger_fee`, bond refunds return `bond − ledger_fee`. Still fully
+**Payout ledger fees (EZ-confirmed 2026-08-06):** each outgoing ledger
+transfer's flat fee is borne by the recipient. The exact agent payout formula —
+and this formula, never the rounded "95%" slogan, is what SKILL.md and the
+trust page MUST state:
+
+```
+agent_receives = (gross − floor(gross × 500 / 10_000)) − ledger_transfer_fee
+               = gross × 95% (fee floored, agent-favoring) − 0.0001 ICP
+```
+
+Bond refunds likewise return `bond − ledger_transfer_fee`. Fully
 deterministic: the ledger fee is flat and known before bidding.
 
 Any 70/20/10-of-gross wording anywhere is VOID.
