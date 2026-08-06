@@ -16,6 +16,19 @@ separate terminal; seeds never entered any transcript). Seed phrases are
 recorded OFF-DEVICE only (written down, offline). They are never stored in
 this repo or in any canister; private keys live in the macOS keychain.
 
+## Mainnet canisters (deployed 2026-08-06, Phase 2)
+
+| Canister | Principal | State |
+| --- | --- | --- |
+| `square_escrow` | `2f3bf-hyaaa-aaaag-ay57a-cai` | live (ICP ledger `ryjl3-tyaaa-aaaaa-aaaba-cai`, 1 ICP cap, 72h review) |
+| `square_core` | `2c2hr-kaaaa-aaaag-ay57q-cai` | live |
+| `frontend_assets` | `nywey-riaaa-aaaag-ay6aa-cai` | live — trust page |
+| `constitution` | `n7xcm-4qaaa-aaaag-ay6aq-cai` | ID reserved; no wasm until Phase 3; blackholed at SNS success |
+
+Controllers on every canister: `sas-deploy` + `backup` only. Freezing
+threshold 90 days on all four. Verify independently:
+<https://dashboard.internetcomputer.org/canister/2f3bf-hyaaa-aaaag-ay57a-cai>
+
 ## Controllers roadmap (handoff §4.3)
 
 | Stage | constitution | escrow / core / frontend |
