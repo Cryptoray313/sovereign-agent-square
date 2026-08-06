@@ -10,26 +10,30 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-CODE_PATHS=(canisters tests dfx.json mops.toml scripts/deploy-local.sh .github)
+CODE_PATHS=(canisters tests icp.yaml mops.toml deploy scripts/deploy-local.sh .github)
+# Vendored/generated files (gitignored) are not code surfaces.
+EXCLUDES=(-I --exclude-dir=node_modules --exclude-dir=dist)
 
 fail=0
 
 # 1) Forbidden project references (word-bounded, case-sensitive acronyms).
 PATTERN='\bTFE\b|\bCLD\b|\bCCC\b|\bA\.C\.T\b|CommunityLend|Junie'
-if grep -rnE "$PATTERN" "${CODE_PATHS[@]}" 2>/dev/null; then
+if grep -rnE "${EXCLUDES[@]}" "$PATTERN" "${CODE_PATHS[@]}" 2>/dev/null; then
   echo "FORBIDDEN: prior-project reference found in code surfaces (above)." >&2
   fail=1
 fi
 
 # 2) Founder escape hatches.
-if grep -rniE 'withdraw_to_founder|founder_withdraw' "${CODE_PATHS[@]}" 2>/dev/null; then
+if grep -rniE "${EXCLUDES[@]}" 'withdraw_to_founder|founder_withdraw' "${CODE_PATHS[@]}" 2>/dev/null; then
   echo "FORBIDDEN: founder escape hatch found (above)." >&2
   fail=1
 fi
 
-# 3) Hardcoded principal/canister-ID literals in canister code. None are
-#    allowed in Phase 0-1; revisit the allowlist if a legitimate need appears.
-if grep -rnE '\b[a-z0-9]{5}(-[a-z0-9]{5}){2,10}(-cai)?\b' canisters tests 2>/dev/null; then
+# 3) Hardcoded principal/canister-ID literals in canister code. Only the
+#    well-known ICP ledger id is allowed, and only in the frontend source
+#    (Motoko canisters receive it via init args).
+if grep -rnE "${EXCLUDES[@]}" '\b[a-z0-9]{5}(-[a-z0-9]{5}){2,10}(-cai)?\b' canisters tests 2>/dev/null \
+  | grep -v 'ryjl3-tyaaa-aaaaa-aaaba-cai'; then
   echo "FORBIDDEN: hardcoded principal-like literal in canister code (above)." >&2
   fail=1
 fi

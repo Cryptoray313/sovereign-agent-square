@@ -4,6 +4,7 @@ import Blob "mo:core/Blob";
 import Nat8 "mo:core/Nat8";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
+import Text "mo:core/Text";
 import Time "mo:core/Time";
 import ICRC "../canisters/shared/ICRC";
 import Core "../canisters/square_core/main";
@@ -397,6 +398,60 @@ persistent actor {
             switch (await escrowFast.getReceipt(jobId)) { case (?_) {}; case (null) { Runtime.trap("no receipt") } };
             // Agent got net + bond back (each minus one ledger fee).
             assert (await bal(agentP)) == agentBefore + (47_500_000 - FEE) + (AB - FEE);
+          },
+        );
+      },
+    );
+
+    await suite(
+      "heartbeat job cards and live trust info",
+      func() : async () {
+        var jobId = 0;
+        await test(
+          "heartbeat serves skill-filtered cards with exact economics",
+          func() : async () {
+            await approveSelf(escrowP, G + CB + FEE);
+            switch (await escrow.createJob(hash32, #icp, G, Time.now() + 3_600_000_000_000, ["research"])) {
+              case (#ok(id)) { jobId := id };
+              case (#err(_)) { Runtime.trap("createJob failed") };
+            };
+            let page = await escrow.heartbeat(null, []);
+            let card = switch (page.job_cards.find(func(c) { c.jobId == jobId })) {
+              case (?c) { c };
+              case (null) { Runtime.trap("new job missing from heartbeat") };
+            };
+            // Deterministic promise: net to the e8s, plus the flat ledger fee.
+            assert card.grossE8s == G;
+            assert card.agentNetE8s == 47_500_000;
+            assert card.ledgerFeeE8s == FEE;
+            assert card.agentBondE8s == AB;
+            // Three releases happened on this escrow so far, all by this client.
+            assert card.clientRep == 3;
+            // Skill filtering: no overlap excludes, overlap includes.
+            let none = await escrow.heartbeat(null, ["nosuchskill"]);
+            assert none.job_cards.find(func(c) { c.jobId == jobId }) == null;
+            let hit = await escrow.heartbeat(null, ["research", "extra"]);
+            assert hit.job_cards.find(func(c) { c.jobId == jobId }) != null;
+            // The client sees its own jobs as escrow events.
+            assert page.escrow_events.size() > 0;
+            assert page.dispute_deadlines.size() == 0;
+          },
+        );
+        await test(
+          "getTrustInfo carries the exact formula and running totals",
+          func() : async () {
+            let info = await escrow.getTrustInfo();
+            assert info.feeFormula.contains(#text "floor(gross * 500 / 10_000)");
+            assert info.feeFormula.contains(#text "ledger_transfer_fee");
+            assert info.feeBps == 500;
+            assert info.burnSharePct == 60;
+            assert info.receiptsCount == 3;
+            assert info.totalGrossSettledE8s == 3 * G;
+            assert info.totalNetPaidE8s == 3 * 47_500_000;
+            assert info.burnReserveE8s == 3 * 1_500_000;
+            assert info.treasuryReserveE8s == 3 * 1_000_000;
+            // Leave state clean for later suites.
+            assert isOk(await escrow.cancelJob(jobId));
           },
         );
       },

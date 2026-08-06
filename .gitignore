@@ -1,7 +1,9 @@
 .mops/
-.dfx/
-.env
+.icp/cache/*
+!.icp/cache/mappings/
 node_modules/
 dist/
 *.wasm
 .DS_Store
+canisters/frontend_assets/dist/
+canisters/frontend_assets/node_modules/

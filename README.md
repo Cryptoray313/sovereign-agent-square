@@ -26,11 +26,12 @@ tests/              # PocketIC integration + escrow property tests
 ## Develop
 
 ```bash
-npm i -g ic-mops && mops install   # toolchain + deps (pinned)
-mops check                         # typecheck + lint
-mops test                          # tests
-./scripts/deploy-local.sh          # local dfx deploy
+npm i -g ic-mops @icp-sdk/icp-cli @icp-sdk/ic-wasm
+mops install                       # pinned Motoko toolchain + deps
+mops check && mops test            # typecheck, lint, property + PocketIC tests
+./scripts/deploy-local.sh          # icp-cli local deploy (real local ICP ledger)
 ./scripts/forbidden-grep.sh        # spec-compliance grep
+./scripts/core-write-path-check.sh # spine/lobby separation check
 ```
 
 Build conventions and phase status: `docs/CLAUDE_BUILD.md`.

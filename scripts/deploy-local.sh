@@ -1,51 +1,29 @@
 #!/usr/bin/env bash
-# LOCAL deploy only: dfx with the mops-pinned moc, plus init-arg wiring
-# (test_ledger -> square_escrow -> square_core). The test_ledger is TEST ONLY
-# and must never reach mainnet; Phase 2 gets its own mainnet deploy flow with
-# the real ICP ledger id.
+# LOCAL deploy via icp-cli. The managed local network ships a real ICP ledger
+# at the standard ryjl3-tyaaa-aaaaa-aaaba-cai, so local runs the REAL ICRC-2
+# flow with production parity (same ledger id as mainnet).
+#
+# Mainnet deploys are a separate, manually-approved flow: docs/DEPLOY_RUNBOOK.md.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if [ "${DFX_NETWORK:-local}" != "local" ]; then
-  echo "REFUSING: this script deploys the TEST ledger and is local-only." >&2
-  exit 1
+if ! icp network status >/dev/null 2>&1; then
+  echo "Starting local network..."
+  icp network start -d
 fi
 
-DFX_MOC_PATH="$(mops toolchain bin moc)"
-export DFX_MOC_PATH
+# Two-pass: square_core's init args need the escrow's canister id.
+icp deploy square_escrow -e local
+ESCROW_ID=$(python3 -c "import json; print(json.load(open('.icp/cache/mappings/local.ids.json'))['square_escrow'])")
 
-if ! dfx ping >/dev/null 2>&1; then
-  echo "Starting local replica..."
-  dfx start --background --clean
-fi
+cat > deploy/local/square_core.args <<EOF
+(record { escrowId = principal "$ESCROW_ID" })
+EOF
 
-# Fund the current dfx identity on the dummy ledger for manual poking.
-ME=$(dfx identity get-principal)
-
-dfx deploy constitution
-dfx deploy test_ledger --argument "(record {
-  initialBalances = vec {
-    record { record { owner = principal \"$ME\"; subaccount = null }; 1_000_000_000 : nat };
-  };
-  fee = 10_000 : nat;
-})"
-
-LEDGER_ID=$(dfx canister id test_ledger)
-# minDeadlineNs 60s; reviewWindowNs 72h (draft — TODO OPEN QUESTION in types.mo).
-dfx deploy square_escrow --argument "(record {
-  ledgerId = principal \"$LEDGER_ID\";
-  opCapE8s = 100_000_000 : nat;
-  minDeadlineNs = 60_000_000_000 : nat;
-  reviewWindowNs = 259_200_000_000_000 : nat;
-})"
-
-ESCROW_ID=$(dfx canister id square_escrow)
-dfx deploy square_core --argument "(record { escrowId = principal \"$ESCROW_ID\" })"
-
-dfx deploy frontend_assets
+icp deploy -e local
 
 echo
 echo "Local deploy complete:"
-for c in constitution test_ledger square_escrow square_core frontend_assets; do
-  echo "  $c: $(dfx canister id "$c")"
-done
+python3 -c "import json; [print(f'  {k}: {v}') for k, v in json.load(open('.icp/cache/mappings/local.ids.json')).items()]"
+echo
+echo "Trust page: http://$(python3 -c "import json; print(json.load(open('.icp/cache/mappings/local.ids.json'))['frontend_assets'])").localhost:8000/"

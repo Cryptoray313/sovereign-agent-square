@@ -158,6 +158,53 @@ module {
     state : JournalState;
   };
 
+  /// One entry in the heartbeat's job feed (handoff §7.3): job CARDS, never a
+  /// board firehose. All amounts exact — the deterministic promise is that an
+  /// agent knows its net to the e8s before it bids. USD equivalents are
+  /// operator-side (no oracle on chain).
+  public type JobCard = {
+    jobId : JobId;
+    token : Token;
+    grossE8s : Nat;
+    agentNetE8s : Nat; // gross − floor(gross × fee_bps/10_000); payout also deducts ledgerFeeE8s
+    ledgerFeeE8s : Nat;
+    agentBondE8s : Nat;
+    deadlineNs : Int;
+    specHash : Blob;
+    skills : [Text];
+    clientRep : Nat; // receipts released by this client (receipts-only rep)
+  };
+
+  public type HeartbeatPage = {
+    job_cards : [JobCard];
+    escrow_events : [JobView]; // caller's own jobs, newest first, max 20
+    dispute_deadlines : [Int]; // empty until dispute v1 (Phase 3)
+    cursor : ?JobId; // pass back to continue paging; null = exhausted
+  };
+
+  /// Everything the trust page renders live (handoff §7.4). The exact fee
+  /// formula is REQUIRED wording (EZ 2026-08-06) — never just "95%".
+  public type TrustInfo = {
+    version : Text;
+    feeFormula : Text;
+    feeBps : Nat;
+    burnSharePct : Nat;
+    ledgerId : Principal;
+    opCapE8s : Nat;
+    minJobGrossE8s : Nat;
+    clientJobBondE8s : Nat;
+    agentJobBondE8s : Nat;
+    minDeadlineNs : Nat;
+    reviewWindowNs : Nat;
+    burnReserveE8s : Nat; // ICP era: earmarked "SQR buyback-and-burn reserve" (L25)
+    treasuryReserveE8s : Nat;
+    receiptsCount : Nat;
+    totalGrossSettledE8s : Nat;
+    totalNetPaidE8s : Nat;
+    untrustedContentPolicy : Text;
+    controllersNote : Text;
+  };
+
   public type EscrowError = {
     #notAuthorized;
     #anonymousCaller;

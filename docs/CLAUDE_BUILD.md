@@ -13,8 +13,13 @@ wording conflicts). This file records how this repo is built and where we are.
   (`reconcileDeposit` / `resolveAgentBond` / `processPayouts`); CallerGuard in
   `finally`; property + replica integration tests all green; core reads rep
   from receipts via query-only interface.
-- Phase 2 — Mainnet MVP: NOT STARTED (needs EZ go-ahead; ends in Junie
-  review #1).
+- **Phase 2 — Mainnet MVP: LOCAL HALF COMPLETE** (2026-08-06). icp-cli
+  migration done (local deploy + real local ICP ledger flow verified);
+  heartbeat job-cards + getTrustInfo live with tests; full SKILL.md; trust
+  page v0 rendering live escrow data (browser-verified); duplicate-block
+  deposit hardening; mainnet init args + DEPLOY_RUNBOOK.md prepared.
+  **Mainnet deploy awaits EZ's separate approval** — nothing has touched the
+  ic network. Ends in Junie review #1 after mainnet + Genesis start.
 
 ## Phase 1 design decisions (documented deltas)
 
@@ -74,22 +79,36 @@ wording conflicts). This file records how this repo is built and where we are.
   rejection, bounded-wait calls, block-index dedup, quotas/bonds, 90d freezing
   threshold, no secrets in canister memory).
 
-## Toolchain
+## Toolchain (icp-cli — EZ-approved switch, 2026-08-06)
 
+- **icp-cli ≥ 1.0.2** for all deploys/canister ops (`npm i -g @icp-sdk/icp-cli
+  @icp-sdk/ic-wasm`). dfx is retired (deprecated upstream); it stays installed
+  ONLY as a Phase-5 `dfx sns` fallback and must not be used for operations.
 - moc 1.13.0, core 2.5.0, lintoko 0.11.0, pocket-ic 14.0.0 — pinned in
-  `mops.toml [toolchain]`; mops ≥ 2.19 required (`npm i -g ic-mops`).
-- dfx 0.32.0 for local deploys. dfx bundles moc 1.4.1, so deploys must use the
-  mops-pinned compiler: `scripts/deploy-local.sh` exports
-  `DFX_MOC_PATH="$(mops toolchain bin moc)"`.
+  `mops.toml [toolchain]`; mops ≥ 2.19 required. The `@dfinity/motoko@v5`
+  recipe builds via `mops build`, so deploys use the same pinned compiler.
+- Project config: `icp.yaml` (environments `local` and `mainnet`).
+  `test_ledger` is deliberately absent from icp.yaml — mops-test only, can
+  never deploy. The managed local network ships a REAL ICP ledger at the
+  standard `ryjl3-tyaaa-aaaaa-aaaba-cai`, so local runs the real ICRC-2 flow
+  with the same ledger id as mainnet.
+- Canister ID mappings live in `.icp/cache/mappings/` in icp 1.0.2 and are
+  re-included from gitignore — the mainnet mapping file MUST be committed.
+- Identities: ceremony identities migrate via `dfx identity export` →
+  `icp identity import`, run by EZ in a separate terminal (DEPLOY_RUNBOOK §0).
+  The `local-dev` identity is throwaway LOCAL ONLY (seed appeared in a build
+  transcript) — never use it on mainnet.
 
 ## Commands
 
 ```bash
 mops install                 # deps + toolchain (pinned)
 mops check                   # typecheck + lint all canisters
-mops test                    # tests in tests/*.test.mo
+mops test                    # tests in tests/*.test.mo (PocketIC replica)
+icp build                    # build all canisters via icp.yaml recipes
+./scripts/deploy-local.sh    # local network + two-pass deploy (core needs escrow id)
 ./scripts/forbidden-grep.sh  # the Junie forbidden-reference grep
-./scripts/deploy-local.sh    # dfx start (if needed) + deploy all canisters locally
+./scripts/core-write-path-check.sh  # spine/lobby separation check
 ```
 
 ## Known warnings (accepted deliberately)
