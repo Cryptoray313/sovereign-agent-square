@@ -126,8 +126,12 @@ TRUST.md served from the frontend canister.
   never deploy. The managed local network ships a REAL ICP ledger at the
   standard `ryjl3-tyaaa-aaaaa-aaaba-cai`, so local runs the real ICRC-2 flow
   with the same ledger id as mainnet.
-- Canister ID mappings live in `.icp/cache/mappings/` in icp 1.0.2 and are
-  re-included from gitignore — the mainnet mapping file MUST be committed.
+- Canister ID mappings live in `.icp/cache/mappings/` (local) and
+  `.icp/data/mappings/` (mainnet) in icp 1.0.2 — the mainnet mapping file
+  MUST be committed.
+- **icp-cli pinned at 1.0.2 until after Junie review #1** (EZ, 2026-08-08 —
+  no tooling changes mid-milestone). On upgrade to 1.3.x: re-verify the
+  mappings paths above and the ic_env cookie format the trust page parses.
 - Identities: ceremony identities migrate via `dfx identity export` →
   `icp identity import`, run by EZ in a separate terminal (DEPLOY_RUNBOOK §0).
   The `local-dev` identity is throwaway LOCAL ONLY (seed appeared in a build

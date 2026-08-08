@@ -73,5 +73,15 @@ runway_months = treasury_ICP × ICP/XDR ÷ monthly_cycle_burn
 Sized so the ≥ 24-month runway holds at bear-case ICP ($1.50). Heartbeats are
 query calls (≈ free); MVP burn likely < 1T cycles/month.
 
-TODO OPEN QUESTION: publish live runway figures here once Phase 2 mainnet
-metrics exist.
+## Live figures (snapshot 2026-08-08 — genesis/job-0008-deliverable.md)
+
+Fleet burn ≈ **0.194T cycles/month** (~5× under the handoff's <1T estimate).
+All four canisters hold ≥24-month runways after the 2026-08-08 top-ups.
+
+**Self-funding baseline (the number Genesis exists to move):** at the 2%-of-
+gross treasury take, the fleet self-funds at **≈ 6.4 ICP of gross settlements
+per day**. Below that, runway is carried by the ops wallet; at and above it,
+the DAO treasury sustains the infrastructure from fees alone. Genesis
+progress: 1.65 ICP settled cumulatively (10 receipts) as of the snapshot.
+Refresh both numbers with each runway snapshot (recurring job format,
+genesis/job-0007/0008).

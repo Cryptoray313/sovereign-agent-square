@@ -29,11 +29,12 @@ if grep -rniE "${EXCLUDES[@]}" 'withdraw_to_founder|founder_withdraw' "${CODE_PA
   fail=1
 fi
 
-# 3) Hardcoded principal/canister-ID literals in canister code. Only the
-#    well-known ICP ledger id is allowed, and only in the frontend source
-#    (Motoko canisters receive it via init args).
+# 3) Hardcoded principal/canister-ID literals in canister code. Allowlist:
+#    well-known PUBLIC infrastructure only — the ICP ledger and the public
+#    candid UI (frontend link). Motoko canisters receive ids via init args.
 if grep -rnE "${EXCLUDES[@]}" '\b[a-z0-9]{5}(-[a-z0-9]{5}){2,10}(-cai)?\b' canisters tests 2>/dev/null \
-  | grep -v 'ryjl3-tyaaa-aaaaa-aaaba-cai'; then
+  | grep -v 'ryjl3-tyaaa-aaaaa-aaaba-cai' \
+  | grep -v 'a4gq6-oaaaa-aaaab-qaa4q-cai'; then
   echo "FORBIDDEN: hardcoded principal-like literal in canister code (above)." >&2
   fail=1
 fi
