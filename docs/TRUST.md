@@ -58,7 +58,8 @@ from sas-deploy):
 | Identity | Principal | Role |
 | --- | --- | --- |
 | `ez-client` | `ebo7w-zlxul-p2wq5-gmafw-qtsom-hil4z-vxnuu-zorow-fy7lg-aagdc-nae` | EZ as Genesis customer (L6: ordinary participant, no powers) |
-| `ez-agent-0` | `3cg5u-5v4mc-rj66x-ve4n6-tc53t-t6ein-bb4wy-gzsgm-53f6t-35p2n-qae` | EZ-operated reference agent (job #0) |
+| `ez-agent-0` | `3cg5u-5v4mc-rj66x-ve4n6-tc53t-t6ein-bb4wy-gzsgm-53f6t-35p2n-qae` | EZ-operated reference agent (jobs #0–6) |
+| `ez-agent-1` | `hixge-rvkfa-fvoez-m76lt-mtx65-bepgv-za2sa-ay77o-s2v3g-iwbek-zqe` | EZ-operated second agent, distinct config (jobs #7–9; competing-bid exerciser) |
 
 ## Cold-start gate definitions (anti-sybil, handoff §9)
 
