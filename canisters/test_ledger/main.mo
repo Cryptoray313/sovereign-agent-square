@@ -33,6 +33,12 @@ persistent actor class TestLedger(
 
   var failMode : FailMode = #none;
 
+  // Simulated transaction-dedup window. A transfer whose created_at_time is
+  // older than this horizon is rejected #TooOld, exactly as a real ICRC ledger
+  // does once its ~24h dedup window passes. Tests advance it to model elapsed
+  // time on PocketIC's frozen clock. (0 = no expiry, default.)
+  var dedupHorizonNs : Nat64 = 0;
+
   let balances = Map.empty<Text, Nat>();
   // allowance key: fromAccount|spenderAccount
   let allowances = Map.empty<Text, Nat>();
@@ -88,6 +94,25 @@ persistent actor class TestLedger(
     failMode := mode;
   };
 
+  /// TEST ONLY: advance the simulated dedup horizon. Any subsequent transfer
+  /// whose created_at_time is < t is rejected #TooOld (window expired).
+  public func advanceDedupHorizon(t : Nat64) : async () {
+    dedupHorizonNs := t;
+  };
+
+  /// TEST ONLY: make the NEXT successful icrc2_transfer_from move funds
+  /// normally but REPORT `b` as its block index. Reproduces the condition a
+  /// deposit-stranding race (or a ledger quirk) would present to the escrow:
+  /// a landed deposit whose reported block was already seen.
+  var forceReportBlock : ?Nat = null;
+  public func forceNextTransferFromBlock(b : Nat) : async () {
+    forceReportBlock := ?b;
+  };
+
+  func windowExpired(createdAt : ?Nat64) : Bool {
+    switch (createdAt) { case (?t) { t < dedupHorizonNs }; case (null) { false } };
+  };
+
   public query func icrc1_fee() : async Nat {
     transferFee;
   };
@@ -111,6 +136,8 @@ persistent actor class TestLedger(
       case (?f) { if (f != transferFee) { return #Err(#BadFee({ expected_fee = transferFee })) } };
       case (null) {};
     };
+
+    if (windowExpired(args.created_at_time)) { return #Err(#TooOld) };
     if (balanceOf(fromKey) < transferFee) {
       return #Err(#InsufficientFunds({ balance = balanceOf(fromKey) }));
     };
@@ -131,6 +158,8 @@ persistent actor class TestLedger(
       case (?f) { if (f != transferFee) { return #Err(#BadFee({ expected_fee = transferFee })) } };
       case (null) {};
     };
+
+    if (windowExpired(args.created_at_time)) { return #Err(#TooOld) };
 
     // Dedup BEFORE fail modes: an idempotent retry of a landed transfer must
     // report the original block, exactly like the real ledger.
@@ -162,9 +191,9 @@ persistent actor class TestLedger(
     debit(fromKey, total);
     credit(toKey, args.amount);
     allowances.add(allowKey, allowance - total);
-    let block = nextBlock;
+    let realBlock = nextBlock;
     nextBlock += 1;
-    switch (dkey) { case (?k) { dedup.add(k, block) }; case (null) {} };
+    switch (dkey) { case (?k) { dedup.add(k, realBlock) }; case (null) {} };
 
     if (failMode == #pullThenErrorOnce) {
       failMode := #none;
@@ -172,7 +201,11 @@ persistent actor class TestLedger(
       return #Err(#GenericError({ error_code = 999; message = "TEST: ambiguous outcome" }));
     };
 
-    #Ok(block);
+    let reported = switch (forceReportBlock) {
+      case (?b) { forceReportBlock := null; b };
+      case (null) { realBlock };
+    };
+    #Ok(reported);
   };
 
   public shared ({ caller }) func icrc1_transfer(args : ICRC.TransferArg) : async { #Ok : Nat; #Err : ICRC.TransferError } {
@@ -184,6 +217,8 @@ persistent actor class TestLedger(
       case (?f) { if (f != transferFee) { return #Err(#BadFee({ expected_fee = transferFee })) } };
       case (null) {};
     };
+
+    if (windowExpired(args.created_at_time)) { return #Err(#TooOld) };
 
     let dkey = dedupKey("xfer" # fromKey, fromKey, toKey, args.amount, args.created_at_time, args.memo);
     switch (dkey) {

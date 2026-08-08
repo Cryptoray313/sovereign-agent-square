@@ -55,7 +55,14 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
   var nextJournalId : Nat = 0;
   let journalByJob = Map.empty<Types.JobId, List.List<Nat>>();
   // Block-index dedup on deposits (defense-in-depth on top of ledger dedup).
-  let processedDepositBlocks = Set.empty<Nat>();
+  // Maps a deposit's ledger block -> the job that owns it, so a re-observed
+  // block is resolved by OWNERSHIP: same job = idempotent success, a foreign
+  // block = anomaly that PARKS (never strands a funded job, never
+  // double-credits). Replaces a bare Set that aborted funded jobs (review F1).
+  let depositBlockOwner = Map.empty<Nat, Types.JobId>();
+  // Index of currently-#open job ids, so heartbeat/listOpenJobs scan only live
+  // jobs instead of the full historical map (review: heartbeat O(n) DoS).
+  let openJobs = Set.empty<Types.JobId>();
   let bids = Map.empty<Types.JobId, List.List<Principal>>();
   let payoutAccounts = Map.empty<Principal, ICRC.Account>();
   let openJobsPerClient = Map.empty<Principal, Nat>();
@@ -153,6 +160,62 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     );
   };
 
+  /// Remove a single journal entry (id) from both indices.
+  func dropJournalEntry(jobId : Types.JobId, entryId : Nat) {
+    ignore journal.remove(entryId);
+    switch (journalByJob.get(jobId)) {
+      case (?ids) {
+        let kept = ids.values().filter(func(i) { i != entryId }).toArray();
+        if (kept.size() == 0) { ignore journalByJob.remove(jobId) } else {
+          let l = List.empty<Nat>();
+          for (i in kept.values()) { l.add(i) };
+          journalByJob.add(jobId, l);
+        };
+      };
+      case (null) {};
+    };
+  };
+
+  /// Roll back a job whose deposit DEFINITIVELY did not happen: nothing landed,
+  /// so leave zero persistent trace (review: the abort path used to leak a job
+  /// + journal entry + quota per call, enabling free unbounded-growth DoS).
+  func rollbackCreate(jobId : Types.JobId, client : Principal) {
+    switch (journalByJob.get(jobId)) {
+      case (?ids) { for (i in ids.values().toArray().values()) { ignore journal.remove(i) } };
+      case (null) {};
+    };
+    ignore journalByJob.remove(jobId);
+    ignore jobs.remove(jobId);
+    openJobs.remove(jobId);
+    bumpQuota(openJobsPerClient, client, -1);
+  };
+
+  /// Confirm a landed deposit and open the job. Idempotent and NON-STRANDING
+  /// (review F1): resolve a re-observed block by ownership. Only ever opens a
+  /// job that actually holds funds; never aborts one that does.
+  func settleDeposit(job : Types.Job, entry : Types.JournalEntry, block : Nat) : Types.Result<Types.JobId> {
+    switch (depositBlockOwner.get(block)) {
+      case (?owner) {
+        if (owner != job.id) {
+          // A block already owned by a DIFFERENT job — impossible with unique
+          // per-entry memos on a correct ledger. Do NOT open (would risk
+          // double-crediting) and do NOT abort (would strand). Re-arm the
+          // entry as #unknown so reconcileDeposit retries: the retry dedups to
+          // this job's own (distinct) block and then opens cleanly.
+          entry.state := #unknown;
+          return #err(#depositUnresolved);
+        };
+        // Our own block, re-observed (retry/dedup): idempotent success.
+      };
+      case (null) { depositBlockOwner.add(block, job.id) };
+    };
+    job.depositBlockIndex := ?block;
+    job.status := #open;
+    openJobs.add(job.id);
+    trackParticipant(job.client, job.id);
+    #ok(job.id);
+  };
+
   /// Ledger call threw. Only a callee-side reject/trap is a KNOWN failure
   /// (ICRC ledgers report business failures as #Err values, so a trap rolled
   /// everything back). Anything else is conservatively #unknown — always
@@ -191,13 +254,24 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
           entry.state := #done({ blockIndex = duplicate_of });
           #landed(duplicate_of);
         };
-        case (#Err(#InsufficientFunds(_)) or #Err(#InsufficientAllowance(_)) or #Err(#BadFee(_)) or #Err(#BadBurn(_)) or #Err(#TooOld) or #Err(#CreatedInFuture(_))) {
+        case (#Err(#InsufficientFunds(_)) or #Err(#InsufficientAllowance(_)) or #Err(#BadFee(_)) or #Err(#BadBurn(_))) {
+          // The ledger definitively did NOT move funds (business reject).
           entry.state := #aborted;
           #definitiveFail("ledger rejected the pull");
         };
+        case (#Err(#TooOld) or #Err(#CreatedInFuture(_))) {
+          // The dedup window has passed (review F2): the ledger can no longer
+          // tell us whether the ORIGINAL attempt landed. We must NOT abort —
+          // that would strand a funded deposit. Park as #unknown (funds-safe,
+          // reconcilable). NOTE: fully auto-resolving a post-window ambiguous
+          // deposit requires per-job deposit sub-accounts (Phase 3); until
+          // then this fails SAFE, never stranding.
+          entry.state := #unknown;
+          #stillUnknown;
+        };
         case (#Err(#TemporarilyUnavailable) or #Err(#GenericError(_))) {
           // Could be a lie/transient — funds state uncertain. Idempotent
-          // retry via the SAME entry resolves it either way.
+          // retry via the SAME entry (within the dedup window) resolves it.
           entry.state := #unknown;
           #stillUnknown;
         };
@@ -324,6 +398,7 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
   };
 
   func onTerminal(job : Types.Job) {
+    openJobs.remove(job.id);
     bumpQuota(openJobsPerClient, job.client, -1);
     switch (bids.get(job.id)) {
       case (?bidders) {
@@ -348,6 +423,7 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
   };
 
   func beginRefund(job : Types.Job, refundAgentBond : Bool) : async () {
+    openJobs.remove(job.id);
     job.status := #refunding;
     schedulePayout(
       job.id,
@@ -392,14 +468,28 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
       return #err(#quotaExceeded("too many open jobs"));
     };
 
-    let lockKey = "create:" # caller.toText();
+    // Allocate the job id and lock on IT (not on the caller) BEFORE any await,
+    // so reconcileDeposit — which locks the same "job:<id>" key — cannot run
+    // concurrently on this job's in-flight deposit (review F1). A fresh id's
+    // lock is never contended, so acquire always succeeds here.
+    let jobId = nextJobId;
+    nextJobId += 1;
+    let lockKey = "job:" # Nat.toText(jobId);
     if (not Guard.acquire(locks, lockKey)) { return #err(#locked) };
     try {
       // Ledger fee fetched live, never hardcoded (handoff §5).
       let ledgerFeeE8s = await (with timeout = LEDGER_TIMEOUT_S) ledger.icrc1_fee();
 
-      let jobId = nextJobId;
-      nextJobId += 1;
+      // F3: refuse the job if the live ledger fee is large enough that any
+      // owner-owed payout leg (agent net, either bond) could be <= fee and get
+      // diverted to the burn reserve as "dust". On the ICP ledger this never
+      // fires; it fences off the Phase-4 token-agnostic rails.
+      let split = Fees.split(grossE8s, FEE_BPS, BURN_SHARE_PCT);
+      let smallestOwnerLeg = Nat.min(split.agentNetE8s, Nat.min(CLIENT_JOB_BOND_E8S, AGENT_JOB_BOND_E8S));
+      if (ledgerFeeE8s >= smallestOwnerLeg) {
+        return #err(#ledgerError("ledger fee too high relative to payouts for this token"));
+      };
+
       let job : Types.Job = {
         id = jobId;
         client = caller;
@@ -421,31 +511,14 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
       };
       jobs.add(jobId, job);
       bumpQuota(openJobsPerClient, caller, 1);
-      trackParticipant(caller, jobId);
 
       // Journal BEFORE the await.
       let entry = newJournalEntry(jobId, #deposit, grossE8s + CLIENT_JOB_BOND_E8S);
       switch (await attemptPull(entry, { owner = caller; subaccount = null }, ledgerFeeE8s)) {
-        case (#landed(block)) {
-          if (processedDepositBlocks.contains(block)) {
-            // Block-index dedup (handoff §4.2): this block already credited an
-            // earlier deposit, so no NEW transfer happened for this job — our
-            // memo+created_at_time is unique per entry, so a repeated block
-            // means the ledger deduped against a prior tx. Definitive failure:
-            // abort cleanly, nothing pulled for this job, nothing stranded.
-            entry.state := #aborted;
-            job.status := #aborted;
-            bumpQuota(openJobsPerClient, caller, -1);
-            return #err(#ledgerError("deposit deduped against an earlier block; job aborted"));
-          };
-          processedDepositBlocks.add(block);
-          job.depositBlockIndex := ?block;
-          job.status := #open;
-          #ok(jobId);
-        };
+        case (#landed(block)) { settleDeposit(job, entry, block) };
         case (#definitiveFail(msg)) {
-          job.status := #aborted;
-          bumpQuota(openJobsPerClient, caller, -1);
+          // Nothing landed → roll back completely (review: no leaked state).
+          rollbackCreate(jobId, caller);
           #err(#ledgerError(msg));
         };
         case (#stillUnknown) {
@@ -473,25 +546,10 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     if (not Guard.acquire(locks, lockKey)) { return #err(#locked) };
     try {
       switch (await attemptPull(entry, { owner = job.client; subaccount = null }, job.ledgerFeeE8s)) {
-        case (#landed(block)) {
-          // Same dedup rule as createJob: a block already claimed by ANOTHER
-          // job means no new transfer happened here — abort cleanly. (A block
-          // this job itself recorded earlier cannot occur: reconcile only runs
-          // while the deposit entry is unresolved.)
-          if (processedDepositBlocks.contains(block)) {
-            entry.state := #aborted;
-            job.status := #aborted;
-            bumpQuota(openJobsPerClient, job.client, -1);
-            return #err(#ledgerError("deposit deduped against an earlier block; job aborted"));
-          };
-          processedDepositBlocks.add(block);
-          job.depositBlockIndex := ?block;
-          job.status := #open;
-          #ok(jobId);
-        };
+        case (#landed(block)) { settleDeposit(job, entry, block) };
         case (#definitiveFail(msg)) {
-          job.status := #aborted;
-          bumpQuota(openJobsPerClient, job.client, -1);
+          // The deposit definitively did not happen → leave zero trace.
+          rollbackCreate(jobId, job.client);
           #err(#ledgerError(msg));
         };
         case (#stillUnknown) { #err(#depositUnresolved) };
@@ -555,20 +613,24 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     try {
       // Reuse an unresolved bond entry for this agent (idempotent retry);
       // otherwise journal a fresh one BEFORE the await.
-      let entry = switch (
-        unresolvedEntryOf(jobId, func(k) { k == #agentBond({ agent = caller }) })
-      ) {
-        case (?e) { e };
-        case (null) { newJournalEntry(jobId, #agentBond({ agent = caller }), AGENT_JOB_BOND_E8S) };
+      let (entry, wasFresh) = switch (unresolvedEntryOf(jobId, func(k) { k == #agentBond({ agent = caller }) })) {
+        case (?e) { (e, false) };
+        case (null) { (newJournalEntry(jobId, #agentBond({ agent = caller }), AGENT_JOB_BOND_E8S), true) };
       };
       switch (await attemptPull(entry, { owner = caller; subaccount = null }, job.ledgerFeeE8s)) {
         case (#landed(_)) {
           job.agent := ?caller;
           job.agentBondE8s := AGENT_JOB_BOND_E8S;
           job.status := #assigned;
+          openJobs.remove(jobId);
           #ok(());
         };
-        case (#definitiveFail(msg)) { #err(#ledgerError(msg)) };
+        case (#definitiveFail(msg)) {
+          // Bond definitively not pulled → drop the freshly-created entry so a
+          // failed accept leaves no journal residue (review: no leaked state).
+          if (wasFresh) { dropJournalEntry(jobId, entry.id) };
+          #err(#ledgerError(msg));
+        };
         case (#stillUnknown) { #err(#depositUnresolved) };
       };
     } finally {
@@ -601,6 +663,7 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
             job.agent := ?bondAgent;
             job.agentBondE8s := AGENT_JOB_BOND_E8S;
             job.status := #assigned;
+            openJobs.remove(jobId);
           } else {
             // Bond landed but assignment is no longer possible: refund it.
             schedulePayout(jobId, { owner = bondAgent; subaccount = null }, #agentBondRefund, AGENT_JOB_BOND_E8S, job.ledgerFeeE8s);
@@ -783,7 +846,9 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
 
   public query func listOpenJobs(offset : Nat, limit : Nat) : async [Types.JobView] {
     let bounded = Nat.min(limit, 50);
-    jobs.values()
+    // Iterate the open-jobs index, not the full history (review: O(n) scan).
+    openJobs.values()
+      .filterMap(func(id) { jobs.get(id) })
       .filter(func(j) { j.status == #open })
       .drop(offset)
       .take(bounded)
@@ -859,9 +924,12 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     let now = nowNs();
     var lastId : ?Types.JobId = null;
     let cards = List.empty<Types.JobCard>();
-    label paging for ((id, job) in jobs.entries()) {
+    // Iterate ONLY currently-open jobs (ascending id via the Set), so cost is
+    // bounded by live jobs, not the full history (review: heartbeat O(n) DoS).
+    label paging for (id in openJobs.values()) {
       if (id < start) { continue paging };
       if (cards.size() >= 20) { lastId := ?id; break paging };
+      let job = switch (jobs.get(id)) { case (?j) { j }; case (null) { continue paging } };
       if (job.status != #open) { continue paging };
       if (not Lifecycle.beforeDeadline(now, job.deadlineNs)) { continue paging };
       let matches = boundedSkills.size() == 0 or job.skills.size() == 0
@@ -883,11 +951,19 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     let events = switch (jobsByParticipant.get(caller)) {
       case (null) { [] };
       case (?ids) {
-        // Newest first, capped at 20.
-        ids.values().toArray().reverse().values()
-          .take(20)
-          .filterMap(func(id) { switch (jobs.get(id)) { case (?j) { ?viewOf(j) }; case (null) { null } } })
-          .toArray();
+        // Newest 20, by index — O(20), not O(history) (review: unbounded read).
+        let n = ids.size();
+        let lo = if (n > 20) { n - 20 : Nat } else { 0 };
+        let slice = List.empty<Types.JobView>();
+        var i = n;
+        label take while (i > lo) {
+          i -= 1;
+          switch (ids.get(i)) {
+            case (?id) { switch (jobs.get(id)) { case (?j) { slice.add(viewOf(j)) }; case (null) {} } };
+            case (null) {};
+          };
+        };
+        slice.toArray();
       };
     };
     {

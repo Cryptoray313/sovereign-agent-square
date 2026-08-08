@@ -2,6 +2,8 @@ import { test; suite } "mo:test/async";
 import Array "mo:core/Array";
 import Blob "mo:core/Blob";
 import Nat8 "mo:core/Nat8";
+import Nat64 "mo:core/Nat64";
+import Int "mo:core/Int";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
 import Text "mo:core/Text";
@@ -504,6 +506,114 @@ persistent actor {
               case (?r) { assert r.completedJobs == snap.completedJobs };
               case (null) { Runtime.trap("rep not cached") };
             };
+          },
+        );
+      },
+    );
+
+    // ============ REGRESSION SUITE (adversarial-review findings) ============
+    // Each test reproduces a finding's HARM and asserts the fix. Comments note
+    // what the pre-fix code did (fail-before), which these now prevent.
+    await suite(
+      "regression: deposit safety and anti-inflation (review F1/F2 + rollback)",
+      func() : async () {
+        let rLedger = await (with cycles = 2_000_000_000_000) TestLedger.TestLedger({
+          initialBalances = [(acct(self), 5_000_000_000)];
+          fee = FEE;
+        });
+        let rLedgerP = Principal.fromActor(rLedger);
+        let rEscrow = await (with cycles = 2_000_000_000_000) Escrow.SquareEscrow({
+          ledgerId = rLedgerP;
+          opCapE8s = 100_000_000;
+          minDeadlineNs = 0;
+          reviewWindowNs = 3_600_000_000_000;
+        });
+        let rEscrowP = Principal.fromActor(rEscrow);
+        let far = Time.now() + 3_600_000_000_000;
+
+        func rApprove(amount : Nat) : async () {
+          switch (await rLedger.icrc2_approve({ from_subaccount = null; spender = acct(rEscrowP); amount; expected_allowance = null; expires_at = null; fee = ?FEE; memo = null; created_at_time = null })) {
+            case (#Ok(_)) {}; case (#Err(_)) { Runtime.trap("rApprove failed") };
+          };
+        };
+        func rStatus(jobId : Nat) : async ?EscrowTypes.JobStatus {
+          switch (await rEscrow.getJob(jobId)) { case (?v) { ?v.status }; case (null) { null } };
+        };
+
+        await test(
+          "F1: a landed deposit reporting an already-owned block PARKS and recovers, never strands (pre-fix: #aborted, funds lost)",
+          func() : async () {
+            await rApprove(G + CB + FEE);
+            switch (await rEscrow.createJob(hash32, #icp, G, far, [])) {
+              case (#ok(0)) {}; case (_) { Runtime.trap("job 0 should open") };
+            };
+            let job0Block = switch (await rEscrow.getJob(0)) { case (?v) { switch (v.depositBlockIndex) { case (?b) { b }; case (null) { Runtime.trap("no block") } } }; case (null) { Runtime.trap("no job0") } };
+            let escrowBefore = await rLedger.icrc1_balance_of(acct(rEscrowP));
+
+            await rLedger.forceNextTransferFromBlock(job0Block);
+            await rApprove(G + CB + FEE);
+            switch (await rEscrow.createJob(hash32, #icp, G, far, [])) {
+              case (#err(#depositUnresolved)) {};
+              case (_) { Runtime.trap("F1: expected parked #depositUnresolved") };
+            };
+            assert (await rLedger.icrc1_balance_of(acct(rEscrowP))) == escrowBefore + G + CB;
+            assert (await rStatus(1)) == ?(#depositPending);
+
+            switch (await rEscrow.reconcileDeposit(1)) { case (#ok(1)) {}; case (_) { Runtime.trap("F1: reconcile should open job 1") } };
+            assert (await rStatus(1)) == ?(#open);
+          },
+        );
+
+        await test(
+          "rollback: a definitively-failed createJob (no allowance) leaves ZERO persistent state (pre-fix: leaked #aborted job per call = free DoS)",
+          func() : async () {
+            let idBefore = 2;
+            switch (await rEscrow.createJob(hash32, #icp, G, far, [])) {
+              case (#err(#ledgerError(_))) {}; case (_) { Runtime.trap("expected ledgerError") };
+            };
+            assert (await rEscrow.getJob(idBefore)) == null;
+            switch (await rEscrow.createJob(hash32, #icp, G, far, [])) { case (#err(_)) {}; case (_) { Runtime.trap("expected err") } };
+            assert (await rEscrow.getJob(idBefore)) == null;
+            assert (await rEscrow.getJob(idBefore + 1)) == null;
+          },
+        );
+
+        await test(
+          "F2: a reconcile after the dedup window PARKS #depositPending, never strands (pre-fix: #TooOld -> #aborted, funds lost)",
+          func() : async () {
+            await rApprove(G + CB + FEE);
+            await rLedger.setFailMode(#pullThenErrorOnce);
+            let jobId = switch (await rEscrow.createJob(hash32, #icp, G, far, [])) {
+              case (#err(#depositUnresolved)) {
+                var found : ?Nat = null; var i = 0;
+                while (i < 12) { switch (await rEscrow.getJob(i)) { case (?v) { if (v.status == #depositPending) { found := ?v.id } }; case (null) {} }; i += 1 };
+                switch (found) { case (?id) { id }; case (null) { Runtime.trap("no pending job") } };
+              };
+              case (_) { Runtime.trap("expected depositUnresolved from pullThenError") };
+            };
+            let escrowHeld = await rLedger.icrc1_balance_of(acct(rEscrowP));
+
+            await rLedger.advanceDedupHorizon(Nat64.fromNat(Int.abs(Time.now()) + 3_600_000_000_000));
+            switch (await rEscrow.reconcileDeposit(jobId)) {
+              case (#err(#depositUnresolved)) {};
+              case (_) { Runtime.trap("F2: expected safe park, not abort") };
+            };
+            assert (await rStatus(jobId)) == ?(#depositPending);
+            assert (await rLedger.icrc1_balance_of(acct(rEscrowP))) == escrowHeld;
+            await rLedger.advanceDedupHorizon(0);
+          },
+        );
+
+        await test(
+          "heartbeat/index: open jobs indexed, removed on terminal",
+          func() : async () {
+            await rApprove(G + CB + FEE);
+            let jid = switch (await rEscrow.createJob(hash32, #icp, G, far, ["idx"])) { case (#ok(id)) { id }; case (#err(_)) { Runtime.trap("createJob failed") } };
+            let p1 = await rEscrow.heartbeat(null, ["idx"]);
+            assert p1.job_cards.find(func(c) { c.jobId == jid }) != null;
+            switch (await rEscrow.cancelJob(jid)) { case (#ok(_)) {}; case (#err(_)) { Runtime.trap("cancel failed") } };
+            let p2 = await rEscrow.heartbeat(null, ["idx"]);
+            assert p2.job_cards.find(func(c) { c.jobId == jid }) == null;
           },
         );
       },
