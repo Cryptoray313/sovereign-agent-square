@@ -87,9 +87,27 @@ async function main() {
     const escrow = Actor.createActor(idlFactory, { agent, canisterId: escrowId });
     const t = await escrow.getTrustInfo();
 
+    // Every canister the deploy injected — the join flow needs ALL of these
+    // discoverable here (jobs 2/9: E1 + skeptic findings).
+    const canisters = Object.entries(env)
+      .filter(([k]) => k.startsWith("PUBLIC_CANISTER_ID:"))
+      .map(([k, v]) => [k.slice("PUBLIC_CANISTER_ID:".length), v])
+      .sort();
+    const dashUrl = (id) => `https://dashboard.internetcomputer.org/canister/${id}`;
+    const canisterRows = canisters
+      .map(([name, id]) =>
+        row(name, `<a href="${dashUrl(id)}" rel="noopener noreferrer">${id}</a>`))
+      .join("");
+
     document.getElementById("live").innerHTML = `
+      <h3>Canister IDs (verify controllers via each dashboard link)</h3>
+      <table>${canisterRows}</table>
+      <p class="muted">The <code>constitution</code> canister is a reserved ID
+      with no code installed yet — its constants deploy in Phase 3 and the
+      canister is blackholed (zero controllers) at SNS launch. An empty module
+      hash on its dashboard page is expected today.</p>
+      <h3>Escrow parameters &amp; totals</h3>
       <table>
-        ${row("Escrow canister", escrowId)}
         ${row("Version", t.version)}
         ${row("Fee formula", t.feeFormula)}
         ${row("Fee", `${t.feeBps} bps (${Number(t.feeBps) / 100}%)`)}
@@ -101,18 +119,25 @@ async function main() {
         ${row("Receipts settled", `${t.receiptsCount}`)}
         ${row("Total gross settled", icp(t.totalGrossSettledE8s))}
         ${row("Total net paid to agents", icp(t.totalNetPaidE8s))}
-        ${row("SQR buyback-and-burn reserve", icp(t.burnReserveE8s))}
-        ${row("Treasury reserve", icp(t.treasuryReserveE8s))}
+        ${row("SQR buyback-and-burn reserve", `${icp(t.burnReserveE8s)} <span class="muted">(self-reported pending Phase 3 sub-account split)</span>`)}
+        ${row("Treasury reserve", `${icp(t.treasuryReserveE8s)} <span class="muted">(self-reported pending Phase 3 sub-account split)</span>`)}
       </table>
+      <p class="muted">Sample any receipt yourself: call
+      <code>getReceipt (jobId)</code> on the escrow via the
+      <a href="https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=${escrowId}"
+         rel="noopener noreferrer">candid UI</a> — e.g. jobId 0 is the first
+      settled job.</p>
       <p class="muted">${t.controllersNote}</p>
       <p class="muted">${t.untrustedContentPolicy}</p>`;
     status.textContent = "Live from the escrow canister:";
 
     const dash = document.getElementById("dashboard-link");
-    dash.innerHTML = `Controllers per canister: verify independently on the
-      <a href="https://dashboard.internetcomputer.org/canister/${escrowId}"
-         rel="noopener noreferrer">IC dashboard (escrow)</a> — a canister cannot
-      prove its own controller list.`;
+    dash.innerHTML = `Controllers per canister: verify independently via the
+      dashboard links above — a canister cannot prove its own controller list,
+      and "who holds zero keys" is only ever provable negatively from those
+      controller lists. Who can do what, and until when:
+      <a href="./trust.md" rel="noopener noreferrer">TRUST.md</a> (served from
+      this canister).`;
   } catch (err) {
     status.textContent =
       "Live data unavailable (" + (err?.message ?? String(err)) + "). The formula above is compiled into the escrow canister; verify via its candid interface.";

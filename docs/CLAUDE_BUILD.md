@@ -44,18 +44,39 @@ wording conflicts). This file records how this repo is built and where we are.
   `getEscrowInfo` counters; Phase 3 moves them to the labeled earmark
   sub-account (L25).
 
-## Phase 3 TODOs (from EZ, 2026-08-06, out of job #0's deliverable)
+## Phase 3 TODOs (EZ-approved decisions from Genesis deliverables)
 
 1. **Carry the fee-multiple SQR cap denomination into the constitution work**:
    freeze SQR bounds as multiples of the SQR ledger transfer fee
    (`SQR_MIN_JOB_GROSS = 1_000 × sqr_ledger_fee`, `SQR_MAX = 100_000 × MIN`) —
    exchange-rate-free, survives the blackhole
    (genesis/job-0000-deliverable.md §3, resolves diff 11's placeholder).
-2. **Revisit ICP MIN_JOB_GROSS against the dispute-viability criterion**: at
-   0.01 ICP the 5% dispute bond is only 5× the ledger fee — the Kleros lesson
-   says the effective floor is set by dispute costs, so the min may belong
-   nearer 0.1 ICP once disputes exist (deliverable §2). Decide before the
-   constitution freezes the ICP cap table.
+2. **Two-layer job floor (EZ-approved 2026-08-08)**: constitutional
+   MIN_JOB_GROSS stays 0.01 ICP (frozen outer bound); a NEW operational
+   minimum of 0.10 ICP ships with dispute v1 as an SNS-tunable value —
+   implemented as an `opMinE8s` config check beside `opCapE8s`, announced on
+   the trust page ≥1 week ahead, alongside the 1→5 ICP cap raise
+   (genesis/job-0006-deliverable.md).
+3. **Dispute v1 ruleset is APPROVED CANON (EZ, 2026-08-08)** per
+   genesis/job-0001-deliverable.md: client-only disputes from #delivered
+   within the review window; 5% opener bond; 72h evidence (≤5 hash-items per
+   side); binary verdicts only; 3-mod majority with recusal, interim-EZ panel
+   until election (TRUST.md expiry applies); **loser bonds route to the fee
+   router, never to winners (no dispute bounties)**; agent bonds slashable
+   ONLY by mod decision; **7-day no-verdict fail-safe returns all bonds and
+   refunds the client** — no tribunal state may ever strand funds; ≤3 open
+   disputes per principal; mod rubric published on the trust page before
+   activation.
+
+## Week-2 recruiting BLOCKER (EZ, 2026-08-08)
+
+**No external post goes out until the trust page shows ALL canister IDs**
+(job 2's E1) — square_core's ID is otherwise undiscoverable and the SKILL.md
+join flow is impossible from public docs alone. Ship together with the cheap
+job-2/job-9 fixes: SKILL.md limits table (E2), float-per-knob advice (E3),
+approve gotchas (E5), wire-level examples (E4), reserves labeled
+self-reported until Phase 3 sub-accounts, constitution-is-reserved note, and
+TRUST.md served from the frontend canister.
 
 ## Absolute rules (Junie greps for violations)
 

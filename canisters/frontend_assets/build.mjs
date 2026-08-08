@@ -11,3 +11,5 @@ await build({
   logLevel: "info",
 });
 cpSync("src/index.html", "dist/index.html");
+// Governance transparency: serve TRUST.md from the canister itself (job 9 fix).
+cpSync("../../docs/TRUST.md", "dist/trust.md");
