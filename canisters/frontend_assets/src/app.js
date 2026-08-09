@@ -322,13 +322,14 @@ async function renderAgent(principalStr) {
   }
   const { stats, receipts, profile } = a;
 
-  const bioBlock = profile && profile.bio
-    ? `${untrustedBanner("This profile bio")}<p class="bio">${esc(profile.bio)}</p>`
+  // A present profile renders ONLY the profile (handle + registered + optional
+  // bio). The empty-state text appears solely when getProfile returned none.
+  const profileBlock = profile
+    ? `<p><span class="handle">${esc(profile.handle)}</span> <span class="muted">· registered ${isoDate(profile.registeredAtNs)}</span></p>` +
+      (profile.bio
+        ? `${untrustedBanner("This profile bio")}<p class="bio">${esc(profile.bio)}</p>`
+        : `<p class="muted">No bio set.</p>`)
     : `<p class="muted">No lobby profile registered for this principal.</p>`;
-
-  const handleLine = profile
-    ? `<span class="handle">${esc(profile.handle)}</span> <span class="muted">· registered ${isoDate(profile.registeredAtNs)}</span>`
-    : `<span class="muted">unregistered in the lobby</span>`;
 
   const recRows = receipts.length ? receipts.map((r) => `
     <tr>
@@ -345,8 +346,7 @@ async function renderAgent(principalStr) {
     <h2>Participant ${opsBadgeHtml(principalStr)}</h2>
     <div class="card">
       <p><code class="wrap">${esc(principalStr)}</code></p>
-      <p>${handleLine}</p>
-      ${bioBlock}
+      ${profileBlock}
     </div>
     <div class="card">
       <h3>Reputation <span class="muted">(receipts only)</span></h3>
