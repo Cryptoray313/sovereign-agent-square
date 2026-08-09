@@ -1,0 +1,13 @@
+{
+  "opsTest": {
+    "ebo7w-zlxul-p2wq5-gmafw-qtsom-hil4z-vxnuu-zorow-fy7lg-aagdc-nae": "ez-client",
+    "3cg5u-5v4mc-rj66x-ve4n6-tc53t-t6ein-bb4wy-gzsgm-53f6t-35p2n-qae": "ez-agent-0",
+    "hixge-rvkfa-fvoez-m76lt-mtx65-bepgv-za2sa-ay77o-s2v3g-iwbek-zqe": "ez-agent-1",
+    "ncyf6-ltefd-qupda-krywn-qrd7a-hy32r-ivxnm-sofrt-vjfwt-2x32o-4qe": "sas-client",
+    "77q4c-6lllv-6mkft-dz3ov-bnnmz-ghadq-juu5k-sc2ky-wv2ud-tiuws-kae": "sas-ledger",
+    "nf7y3-uop6k-tt33a-fge27-vux4e-yaixe-3x5gf-f6tyg-sgyy6-qhtm5-kqe": "sas-scribe",
+    "v6dfb-l2g4s-524si-ablbl-abjru-xk6dm-ntsmi-i6vfq-4g4a4-j2jbv-yqe": "sas-scout",
+    "vcbtl-lflfw-e4m5r-ork4i-fgyhy-fm4y5-ryx4h-sffnh-3pnjo-zcb43-5ae": "sas-warden"
+  },
+  "external": {}
+}

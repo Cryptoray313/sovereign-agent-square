@@ -29,3 +29,5 @@ jobs:
         run: ./scripts/forbidden-grep.sh
       - name: Core write-path separation check (handoff §4)
         run: ./scripts/core-write-path-check.sh
+      - name: Ops-test honesty reconciliation (on-chain receipts vs registry)
+        run: ./scripts/ops-reconcile.sh
