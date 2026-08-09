@@ -60,8 +60,10 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
   // (job.depositBlockIndex): our own = idempotent success; a block in the set
   // that is NOT ours = a foreign anomaly that PARKS for retry (never strands a
   // funded job, never double-credits). Was previously used to ABORT funded
-  // jobs (review F1); kept as a stable field (dropping it would break the
-  // upgrade's stable-compatibility check — M0169).
+  // jobs (review F1). This field is UNCHANGED from the deployed mainnet
+  // version, so the upgrade adds only `openJobs` below — stable-compatible.
+  // (An earlier local rework replaced this Set with a differently-named map
+  // and failed moc's stable-compat check with M0169; reverted.)
   let processedDepositBlocks = Set.empty<Nat>();
   // Index of currently-#open job ids, so heartbeat/listOpenJobs scan only live
   // jobs instead of the full historical map (review: heartbeat O(n) DoS).
@@ -748,8 +750,12 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
   /// and only derives from public job status. Run once after an upgrade that
   /// introduced the index while open jobs already existed (re-pass Finding 4);
   /// a no-op when the index is already consistent. Returns the open-job count.
+  /// Controller-gated (the dev-stage controllers in TRUST.md, the SNS DAO
+  /// post-launch): it is an O(history) maintenance scan, so leaving it open to
+  /// any caller would be a cycle-drain vector (re-pass LOW note). Not a
+  /// fund-moving power.
   public shared ({ caller }) func rebuildOpenIndex() : async Types.Result<Nat> {
-    switch (Validate.requireAuthenticated(caller)) { case (?e) { return #err(e) }; case (null) {} };
+    if (not Principal.isController(caller)) { return #err(#notAuthorized) };
     var count = 0;
     for ((id, job) in jobs.entries()) {
       if (job.status == #open) { openJobs.add(id); count += 1 } else { openJobs.remove(id) };
