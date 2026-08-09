@@ -4,6 +4,12 @@ This file is the single source of truth for who can do what, and until when.
 Any temporary power not named here with an explicit expiry date is a spec
 violation (handoff §2).
 
+**Source & reproducibility.** The full source is public and Apache-2.0 licensed:
+<https://github.com/Cryptoray313/sovereign-agent-square>. Each live canister's
+module hash is reproducible from a tagged commit — see
+[docs/MODULE_HASHES.md](https://github.com/Cryptoray313/sovereign-agent-square/blob/main/docs/MODULE_HASHES.md)
+(live tags `mainnet-escrow-1754339f`, `mainnet-core-e16bc83b`).
+
 ## Identities
 
 | Identity | Principal | Role |
