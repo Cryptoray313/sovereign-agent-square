@@ -190,12 +190,37 @@ What to verify:
    outside the registry ever settles, the banner flips to a flagged warning
    instead of implying organic adoption.
 
-Ops-test cross-check (this build): every client+agent principal across all
-**25** on-chain receipts (jobs #0–24) maps to a known ops-test identity — zero
-external participants. Re-run before publishing headline numbers as data grows.
+6. **Ops-test reconciliation is now a standing CI guard**, alongside
+   forbidden-grep and core-write-path (`.github/workflows/ci.yml` →
+   `scripts/ops-reconcile.sh`). Invariant: every principal in an on-chain
+   escrow receipt (client or agent) must be deliberately classified in the
+   shared registry `canisters/frontend_assets/src/lib/ops-registry.json` as
+   `opsTest` or `external`; an unaccounted principal renders "unlabeled" in the
+   UI **and fails the build**. The guard queries mainnet live (icp-cli in CI),
+   falls back to a committed snapshot, and skips only if neither is reachable
+   (never fails on pure infra). The UI and the guard read the SAME registry —
+   one source of truth. Fail-before/pass-after verified.
+
+Ops-test cross-check (this build, re-run against live chain): every
+client+agent principal across all **25** on-chain receipts (jobs #0–24) maps to
+a known ops-test identity — **zero external participants**. This is now
+enforced automatically on every push, not a one-time check.
+
+**Independent verification (same standard as review #1 — verify against the
+chain, not our say-so):**
+- Controllers / no-owner: read each canister's controllers on the IC dashboard
+  (`dashboard.internetcomputer.org/canister/<id>`), not from any page claim.
+- No write path: inspect the published bundle source (`src/app.js`, `src/lib/`)
+  — confirm only query methods, no update calls, no wallet, no admin route.
+- Honesty: independently enumerate on-chain receipt principals (`getReceipt`
+  0..receiptsCount) and confirm each is in `ops-registry.json`; confirm the live
+  site badges them and that the pulse never claims organic adoption. Or just run
+  `scripts/ops-reconcile.sh` yourself.
+- Reproducibility: the escrow/core module hashes verify per `docs/MODULE_HASHES.md`.
 
 Deploy: `frontend_assets` only; escrow/core wasm untouched (module hashes
 `0x1754339f…` / `0xe16bc83b…` unchanged, re-verified on-chain). H1 content sync
-asset/state hash `0x895100cb17de1b327b7a169ce575a518d2af95a979f40c92cae2af65924f7345`.
-H2 (a human write path) is a separate, later decision — no write actions exist
-in this pass.
+asset/state hashes: `0x895100cb…` (site), then
+`0x12653e95b7168a01911b0ce3e30ea32721103c42aa737cbf00ff76c198876e3f`
+(three-state ops badge + shared registry). H2 (a human write path) is a
+separate, later decision — no write actions exist in this pass.
