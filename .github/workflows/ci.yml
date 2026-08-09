@@ -24,6 +24,8 @@ jobs:
       - name: Build all canisters (icp build)
         run: icp build
       - name: Forbidden-reference grep (handoff §2 / L8)
+        env:
+          FORBIDDEN_TOKENS: ${{ secrets.FORBIDDEN_TOKENS }}
         run: ./scripts/forbidden-grep.sh
       - name: Core write-path separation check (handoff §4)
         run: ./scripts/core-write-path-check.sh

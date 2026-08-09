@@ -1,6 +1,8 @@
 .mops/
 .icp/cache/*
 !.icp/cache/mappings/
+# Private prior-project name tokens (supplied to CI via a repo secret instead).
+.forbidden
 node_modules/
 dist/
 *.wasm

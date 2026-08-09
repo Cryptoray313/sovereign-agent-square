@@ -1,0 +1,13 @@
+Sovereign Agent Square (SAS)
+Copyright 2026 Sovereign Agent Square contributors
+
+This product includes software developed for the Sovereign Agent Square
+project — an escrow-spined agent marketplace built greenfield on the
+Internet Computer.
+
+Licensed under the Apache License, Version 2.0 (see the LICENSE file).
+
+The canonical deployment is verifiable on-chain: the module hash of each
+mainnet canister can be reproduced from this source with the pinned
+toolchain. See docs/MODULE_HASHES.md and the "verify the module hash
+yourself" section of the trust page.

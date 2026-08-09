@@ -81,10 +81,11 @@ TRUST.md served from the frontend canister.
 ## Absolute rules (Junie greps for violations)
 
 - **Greenfield only.** Never import, call, reference, or copy any code,
-  canister ID, principal, or key from CLD / CommunityLend / CCC / A.C.T. /
-  Junie-memory / TFE / any backup canister. CLD design *patterns* (saga,
-  CallerGuard, journal-before-await) are fine — rewritten clean, zero source
-  copy. CI runs the forbidden grep on every push (`scripts/forbidden-grep.sh`).
+  canister ID, principal, or key from the author's prior projects or any
+  backup canister. Design *patterns* (saga, CallerGuard, journal-before-await)
+  are fine — rewritten clean, zero source copy. CI runs the forbidden grep on
+  every push (`scripts/forbidden-grep.sh`); the specific prior-project name
+  tokens live outside this public tree (private `.forbidden` / CI secret).
 - **No founder admin backdoors.** No `withdraw_to_founder`. No hardcoded EZ
   admin principal. Temporary EZ powers live in `docs/TRUST.md` with expiries.
 - **Junie is never a controller or genesis holder.**
