@@ -116,3 +116,46 @@ boundaries, PocketIC integration incl. compensation paths) — rerun freshly
 - `square_core.version()` string still says "phase 1 … local" (label only;
   bump with next core change).
 - Trust-page reserves labeled self-reported until Phase 3 (deviation 4).
+- `square_escrow.version()` string still "0.2.0 phase 2" (not bumped for the
+  2026-08-09 security hardening; label only).
+
+## I. Stage 4 — publication package (for Review #1)
+
+Public repository (Apache-2.0):
+<https://github.com/Cryptoray313/sovereign-agent-square> — public, CI green.
+
+Provenance: prior-project name tokens are kept OUT of the public tree
+(gitignored `.forbidden`; CI greps them from a `FORBIDDEN_TOKENS` repo secret).
+Security-critical greps (founder backdoors, hardcoded principals in Motoko)
+run unconditionally. Full history pushed without rewrite (pre-scrubbed clean:
+no seeds/keys/PII in tree or history).
+
+Tags → commit SHA (annotated; each carries its reproduction claim):
+
+| Tag | Commit SHA | Canister | Live on-chain module hash |
+| --- | --- | --- | --- |
+| `mainnet-escrow-1754339f` | `cfdbbdd5855fb36641d7136ff0167b4b1311a46d` | `2f3bf-hyaaa-aaaag-ay57a-cai` | `0x1754339fa04a3ea33ef6d362172809265efdc3b88698a4b7a451489633d4e2a5` |
+| `mainnet-core-e16bc83b` | `cfdbbdd5855fb36641d7136ff0167b4b1311a46d` | `2c2hr-kaaaa-aaaag-ay57q-cai` | `0xe16bc83b068724fe3a005b5b19281eae42770680e06cd8334926df6fd9ba323e` |
+| `superseded-escrow-991a8c26` | `13d57dc90ac09b7812f87b62c8b68511c2fcc301` | (history only) | `0x991a8c26…868ada` — NOT LIVE; do not verify against this |
+
+Proof of reproduction (independently re-derived at tag commit `cfdbbdd`, not
+trusted from any note): live on-chain hashes were read from the IC via
+`dfx canister info <id> --network ic`; the tagged source was then built AND
+installed to a clean local replica with the pinned toolchain
+(icp-cli 1.0.2 / moc 1.13.0 / mops 2.20.0), and the module hash icp-cli
+installed was read back:
+
+- square_escrow: local install → `0x1754339f…33d4e2a5` == on-chain. MATCH.
+- square_core:   local install → `0xe16bc83b…d9ba323e` == on-chain. MATCH.
+
+(The module hash is the SHA-256 of the gzip artifact icp-cli installs, not of
+the raw build wasm — see docs/MODULE_HASHES.md for the exact procedure.)
+
+Frontend: `frontend_assets` (`nywey-riaaa-aaaag-ay6aa-cai`) was redeployed on
+2026-08-09 to add the "verify the module hash yourself" section + repo link.
+It is an asset canister, so its **module hash is unchanged**
+(`0xde8b914e…68181b2d`, the generic static-site server); the content sync
+reports asset/state hash
+`0x7c4b86cda6655ba56a8b90b50b4d079951ee7709b4290bb83ee7f6d702dc705f`. Escrow
+and core were NOT touched in this step (hashes above unchanged, re-verified
+on-chain post-redeploy).
