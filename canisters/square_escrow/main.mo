@@ -55,11 +55,14 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
   var nextJournalId : Nat = 0;
   let journalByJob = Map.empty<Types.JobId, List.List<Nat>>();
   // Block-index dedup on deposits (defense-in-depth on top of ledger dedup).
-  // Maps a deposit's ledger block -> the job that owns it, so a re-observed
-  // block is resolved by OWNERSHIP: same job = idempotent success, a foreign
-  // block = anomaly that PARKS (never strands a funded job, never
-  // double-credits). Replaces a bare Set that aborted funded jobs (review F1).
-  let depositBlockOwner = Map.empty<Nat, Types.JobId>();
+  // Membership means "some job already recorded this deposit block". A
+  // re-observed block is resolved against the JOB's OWN recorded block
+  // (job.depositBlockIndex): our own = idempotent success; a block in the set
+  // that is NOT ours = a foreign anomaly that PARKS for retry (never strands a
+  // funded job, never double-credits). Was previously used to ABORT funded
+  // jobs (review F1); kept as a stable field (dropping it would break the
+  // upgrade's stable-compatibility check — M0169).
+  let processedDepositBlocks = Set.empty<Nat>();
   // Index of currently-#open job ids, so heartbeat/listOpenJobs scan only live
   // jobs instead of the full historical map (review: heartbeat O(n) DoS).
   let openJobs = Set.empty<Types.JobId>();
@@ -190,26 +193,28 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     bumpQuota(openJobsPerClient, client, -1);
   };
 
-  /// Confirm a landed deposit and open the job. Idempotent and NON-STRANDING
-  /// (review F1): resolve a re-observed block by ownership. Only ever opens a
-  /// job that actually holds funds; never aborts one that does.
+  /// Confirm a landed deposit and open the job. Idempotent and never aborts a
+  /// funded job (review F1). Resolves a re-observed block against the JOB's OWN
+  /// recorded block: our own = idempotent success; a block already in the set
+  /// but NOT ours = a foreign anomaly (only reachable under a ledger
+  /// block-index reuse, impossible with unique per-entry memos) that PARKS for
+  /// retry rather than stranding or double-crediting.
   func settleDeposit(job : Types.Job, entry : Types.JournalEntry, block : Nat) : Types.Result<Types.JobId> {
-    switch (depositBlockOwner.get(block)) {
-      case (?owner) {
-        if (owner != job.id) {
-          // A block already owned by a DIFFERENT job — impossible with unique
-          // per-entry memos on a correct ledger. Do NOT open (would risk
-          // double-crediting) and do NOT abort (would strand). Re-arm the
-          // entry as #unknown so reconcileDeposit retries: the retry dedups to
-          // this job's own (distinct) block and then opens cleanly.
+    switch (job.depositBlockIndex) {
+      case (?_) { /* our own block, re-observed (retry/dedup): idempotent */ };
+      case (null) {
+        if (processedDepositBlocks.contains(block)) {
+          // Seen, but not recorded as OURS -> a different job already owns it.
+          // Do NOT open (double-credit risk) and do NOT abort (strand). Re-arm
+          // #unknown so reconcileDeposit's retry dedups to this job's own
+          // (distinct) block and opens cleanly.
           entry.state := #unknown;
           return #err(#depositUnresolved);
         };
-        // Our own block, re-observed (retry/dedup): idempotent success.
+        processedDepositBlocks.add(block);
+        job.depositBlockIndex := ?block;
       };
-      case (null) { depositBlockOwner.add(block, job.id) };
     };
-    job.depositBlockIndex := ?block;
     job.status := #open;
     openJobs.add(job.id);
     trackParticipant(job.client, job.id);
@@ -231,6 +236,12 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     #landed : Nat; // block index
     #definitiveFail : Text;
     #stillUnknown;
+    // The dedup window passed on a RETRY (created_at_time too old): the ledger
+    // can no longer confirm whether the original attempt landed. Callers decide
+    // per context — deposits keep the funds parked; agent bonds give up (see
+    // review re-pass Finding 1: an un-terminable bond entry must never hold a
+    // client's gross+bond hostage).
+    #windowExpired;
   };
 
   /// One idempotent attempt at an inbound pull (deposit or agent bond).
@@ -260,14 +271,12 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
           #definitiveFail("ledger rejected the pull");
         };
         case (#Err(#TooOld) or #Err(#CreatedInFuture(_))) {
-          // The dedup window has passed (review F2): the ledger can no longer
-          // tell us whether the ORIGINAL attempt landed. We must NOT abort —
-          // that would strand a funded deposit. Park as #unknown (funds-safe,
-          // reconcilable). NOTE: fully auto-resolving a post-window ambiguous
-          // deposit requires per-job deposit sub-accounts (Phase 3); until
-          // then this fails SAFE, never stranding.
+          // Dedup window passed (review F2 + re-pass F1/F2): report distinctly
+          // so the CALLER decides. We must never abort a deposit whose funds
+          // may have landed (strand); we must never let a bond entry become
+          // un-terminable (wedge). The entry stays #unknown for either path.
           entry.state := #unknown;
-          #stillUnknown;
+          #windowExpired;
         };
         case (#Err(#TemporarilyUnavailable) or #Err(#GenericError(_))) {
           // Could be a lie/transient — funds state uncertain. Idempotent
@@ -464,9 +473,15 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     if (deadlineNs < nowNs() + cfg.minDeadlineNs) {
       return #err(#invalidInput("deadline too soon"));
     };
+    // Check AND reserve the quota slot in this synchronous prefix, before any
+    // await (re-pass Finding 3): otherwise N concurrent createJob calls each
+    // pass the check at 0 and all proceed, bypassing the cap. Every failure
+    // path after this point must release the slot (rollbackCreate does; the
+    // early-returns below do so explicitly).
     if (quotaOf(openJobsPerClient, caller) >= MAX_OPEN_JOBS_PER_CLIENT) {
       return #err(#quotaExceeded("too many open jobs"));
     };
+    bumpQuota(openJobsPerClient, caller, 1);
 
     // Allocate the job id and lock on IT (not on the caller) BEFORE any await,
     // so reconcileDeposit — which locks the same "job:<id>" key — cannot run
@@ -475,10 +490,16 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     let jobId = nextJobId;
     nextJobId += 1;
     let lockKey = "job:" # Nat.toText(jobId);
-    if (not Guard.acquire(locks, lockKey)) { return #err(#locked) };
+    if (not Guard.acquire(locks, lockKey)) { bumpQuota(openJobsPerClient, caller, -1); return #err(#locked) };
     try {
-      // Ledger fee fetched live, never hardcoded (handoff §5).
-      let ledgerFeeE8s = await (with timeout = LEDGER_TIMEOUT_S) ledger.icrc1_fee();
+      // Ledger fee fetched live, never hardcoded (handoff §5). A throw here
+      // (e.g. bounded-wait timeout) must release the reserved slot.
+      let ledgerFeeE8s = try {
+        await (with timeout = LEDGER_TIMEOUT_S) ledger.icrc1_fee();
+      } catch (e) {
+        bumpQuota(openJobsPerClient, caller, -1);
+        return #err(#ledgerError("fee query failed: " # Error.message(e)));
+      };
 
       // F3: refuse the job if the live ledger fee is large enough that any
       // owner-owed payout leg (agent net, either bond) could be <= fee and get
@@ -487,6 +508,7 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
       let split = Fees.split(grossE8s, FEE_BPS, BURN_SHARE_PCT);
       let smallestOwnerLeg = Nat.min(split.agentNetE8s, Nat.min(CLIENT_JOB_BOND_E8S, AGENT_JOB_BOND_E8S));
       if (ledgerFeeE8s >= smallestOwnerLeg) {
+        bumpQuota(openJobsPerClient, caller, -1);
         return #err(#ledgerError("ledger fee too high relative to payouts for this token"));
       };
 
@@ -510,7 +532,7 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
         var depositBlockIndex = null;
       };
       jobs.add(jobId, job);
-      bumpQuota(openJobsPerClient, caller, 1);
+      // (quota slot already reserved in the synchronous prefix above)
 
       // Journal BEFORE the await.
       let entry = newJournalEntry(jobId, #deposit, grossE8s + CLIENT_JOB_BOND_E8S);
@@ -521,9 +543,11 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
           rollbackCreate(jobId, caller);
           #err(#ledgerError(msg));
         };
-        case (#stillUnknown) {
+        case (#stillUnknown or #windowExpired) {
           // Funds state uncertain; job stays #depositPending. Client (or
-          // anyone) drives resolution via reconcileDeposit.
+          // anyone) drives resolution via reconcileDeposit. (#windowExpired
+          // cannot occur on this first, now-stamped attempt; handled for
+          // exhaustiveness and safety.)
           #err(#depositUnresolved);
         };
       };
@@ -553,6 +577,13 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
           #err(#ledgerError(msg));
         };
         case (#stillUnknown) { #err(#depositUnresolved) };
+        case (#windowExpired) {
+          // Dedup window passed on a re-observed deposit. Do NOT abort: if the
+          // original landed, aborting would strand it. The job stays
+          // #depositPending (funds, if any, are FROZEN in escrow, never lost)
+          // pending Phase-3 balance-checked (deposit sub-account) recovery.
+          #err(#depositUnresolved);
+        };
       };
     } finally {
       Guard.release(locks, lockKey);
@@ -632,6 +663,13 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
           #err(#ledgerError(msg));
         };
         case (#stillUnknown) { #err(#depositUnresolved) };
+        case (#windowExpired) {
+          // Can't confirm the bond post-window; the agent must drive it via
+          // resolveAgentBond (which gives the job a terminal escape). Drop a
+          // fresh entry so retries don't accrete residue.
+          if (wasFresh) { dropJournalEntry(jobId, entry.id) };
+          #err(#depositUnresolved);
+        };
       };
     } finally {
       Guard.release(locks, lockKey);
@@ -676,6 +714,17 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
           #ok(());
         };
         case (#stillUnknown) { #err(#depositUnresolved) };
+        case (#windowExpired) {
+          // Re-pass Finding 1: post-window the bond can't be confirmed. An
+          // un-terminable bond entry would block cancelJob/timeoutJob and hold
+          // the client's gross+bond hostage forever. Abandon the bond: mark the
+          // entry resolved (#aborted) and free the selection so the job can be
+          // refunded. Any bond that DID land is a small (0.01 ICP) orphan in
+          // escrow — an acceptable price to free the larger client deposit.
+          entry.state := #aborted;
+          if (job.selectedAgent == ?bondAgent) { job.selectedAgent := null };
+          #ok(());
+        };
       };
     } finally {
       Guard.release(locks, lockKey);
@@ -693,6 +742,19 @@ persistent actor class SquareEscrow(cfg : Types.EscrowConfig) = this {
     job.deliveredAtNs := ?nowNs();
     job.status := #delivered;
     #ok(());
+  };
+
+  /// Rebuild the open-jobs index from job state. Idempotent, moves no funds,
+  /// and only derives from public job status. Run once after an upgrade that
+  /// introduced the index while open jobs already existed (re-pass Finding 4);
+  /// a no-op when the index is already consistent. Returns the open-job count.
+  public shared ({ caller }) func rebuildOpenIndex() : async Types.Result<Nat> {
+    switch (Validate.requireAuthenticated(caller)) { case (?e) { return #err(e) }; case (null) {} };
+    var count = 0;
+    for ((id, job) in jobs.entries()) {
+      if (job.status == #open) { openJobs.add(id); count += 1 } else { openJobs.remove(id) };
+    };
+    #ok(count);
   };
 
   public shared ({ caller }) func acceptDelivery(jobId : Types.JobId) : async Types.Result<()> {

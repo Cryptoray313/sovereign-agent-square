@@ -616,6 +616,50 @@ persistent actor {
             assert p2.job_cards.find(func(c) { c.jobId == jid }) == null;
           },
         );
+
+        // Re-review Finding 1: an agent-bond pull that becomes un-confirmable
+        // after the dedup window must NOT hold the client's gross+bond hostage.
+        await test(
+          "re-review F1: post-window unresolvable agent bond is abandoned so the client's deposit can be refunded (pre-fix: job wedged forever)",
+          func() : async () {
+            // Fresh agent principal for a clean bond flow.
+            let sim = await (with cycles = 2_000_000_000_000) Sim.Sim();
+            let ag = Principal.fromActor(sim);
+            // fund the agent on rLedger
+            switch (await rLedger.icrc2_approve({ from_subaccount = null; spender = acct(rEscrowP); amount = 0; expected_allowance = null; expires_at = null; fee = ?FEE; memo = null; created_at_time = null })) { case (_) {} };
+            // seed agent balance by minting via a transfer from self
+            switch (await rLedger.icrc1_transfer({ from_subaccount = null; to = acct(ag); amount = 10_000_000; fee = ?FEE; memo = null; created_at_time = null })) { case (#Ok(_)) {}; case (#Err(_)) { Runtime.trap("seed agent failed") } };
+
+            await rApprove(G + CB + FEE);
+            let jid = switch (await rEscrow.createJob(hash32, #icp, G, far, [])) { case (#ok(id)) { id }; case (#err(_)) { Runtime.trap("createJob failed") } };
+            assert isOk(await sim.doBid(rEscrowP, jid));
+            assert isOk(await rEscrow.selectBid(jid, ag));
+            // Agent approves bond, but the pull returns an AMBIGUOUS result.
+            assert (await sim.approveLedger(rLedgerP, rEscrowP, AB + FEE, FEE));
+            await rLedger.setFailMode(#pullThenErrorOnce);
+            switch (await sim.doAcceptJob(rEscrowP, jid)) {
+              case (#err(#depositUnresolved)) {}; // ambiguous bond -> #unknown entry
+              case (_) { Runtime.trap("expected ambiguous bond") };
+            };
+            // Client cannot refund yet — the unresolved bond blocks it.
+            switch (await rEscrow.cancelJob(jid)) {
+              case (#err(#depositUnresolved)) {}; // correctly blocked while resolvable
+              case (_) { Runtime.trap("cancel should be blocked by unresolved bond") };
+            };
+            // Window passes; the bond can never be confirmed via retry.
+            await rLedger.advanceDedupHorizon(Nat64.fromNat(Int.abs(Time.now()) + 3_600_000_000_000));
+            // resolveAgentBond must ABANDON the bond (terminal escape), NOT wedge.
+            switch (await rEscrow.resolveAgentBond(jid)) { case (#ok(_)) {}; case (#err(_)) { Runtime.trap("re-review F1: resolveAgentBond should abandon a post-window bond") } };
+            // Reset the window so the refund transfer itself isn't rejected.
+            await rLedger.advanceDedupHorizon(0);
+            // Now the client CAN get their gross+bond back.
+            let clientBefore = await rLedger.icrc1_balance_of(acct(self));
+            switch (await rEscrow.cancelJob(jid)) { case (#ok(_)) {}; case (#err(_)) { Runtime.trap("re-review F1: cancel must succeed after bond abandoned") } };
+            switch (await rEscrow.getJob(jid)) { case (?v) { assert v.status == #refunded }; case (null) { Runtime.trap("no job") } };
+            assert (await rLedger.icrc1_balance_of(acct(self))) == clientBefore + (G + CB - FEE);
+            await rLedger.setFailMode(#none);
+          },
+        );
       },
     );
   };
