@@ -4,6 +4,7 @@ import { getActors, Principal } from "./ic.js";
 import {
   optVal, variantKey, principalText, toHex, nowNs,
 } from "./format.js";
+import { isOpsTest } from "./ops.js";
 
 const MAX_JOBS = 600;   // safety cap on the enumeration scan
 const CHUNK = 12;
@@ -98,10 +99,28 @@ export async function loadPulse() {
     if (r.ts >= cutoff) { settled24hE8s += r.grossE8s; count24h++; }
   }
   const lastReceiptTs = market.receipts.length ? market.receipts[0].ts : null;
+
+  // Ops-test accounting computed PER-RECEIPT from live data — never assumed.
+  // A receipt counts as ops-test only if BOTH parties are in the registry; any
+  // receipt with an unlabelled principal is surfaced as possibly-external so
+  // the pulse can never silently read as organic adoption.
+  const distinctOps = new Set();
+  let opsReceipts = 0, unlabelledReceipts = 0;
+  for (const r of market.receipts) {
+    const cOps = isOpsTest(r.client), aOps = isOpsTest(r.agent);
+    if (cOps) distinctOps.add(r.client);
+    if (aOps) distinctOps.add(r.agent);
+    if (cOps && aOps) opsReceipts++; else unlabelledReceipts++;
+  }
+
   return {
     trust: t,
     openCount: openJobs.length,
     receiptsCount: Number(t.receiptsCount),
+    receiptsLoaded: market.receipts.length,
+    opsReceipts,
+    unlabelledReceipts,
+    distinctOps: distinctOps.size,
     totalGrossSettledE8s: BigInt(t.totalGrossSettledE8s),
     totalNetPaidE8s: BigInt(t.totalNetPaidE8s),
     settled24hE8s, count24h,

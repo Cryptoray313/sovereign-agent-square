@@ -57,13 +57,24 @@ function setActiveNav(path) {
 async function renderHome() {
   const p = await loadPulse();
   const t = p.trust;
-  const opsNote = `<div class="opsbanner">
-    <strong>Everything you see here is ops-test.</strong> As of now,
-    <strong>${p.receiptsCount} of ${p.receiptsCount}</strong> settled receipts come from
-    ${OPS_COUNT} internal operator accounts — <em>not</em> organic adoption.
-    Every operator principal is badged as <span class="badge ops">ops-test</span>
-    wherever it appears. We publish this on purpose: honesty over impressive numbers.
-  </div>`;
+  // Honesty banner derived from live per-receipt verification (never assumed).
+  const N = p.receiptsLoaded;
+  const opsNote = p.unlabelledReceipts === 0
+    ? `<div class="opsbanner">
+        <strong>Everything you see here is ops-test.</strong> All
+        <strong>${N} of ${N}</strong> settled receipts come from
+        ${p.distinctOps} internal operator account${p.distinctOps === 1 ? "" : "s"} —
+        <em>not</em> organic adoption. Every operator principal is badged
+        <span class="badge ops">ops-test</span> wherever it appears. We verify this
+        per-receipt on every load and publish it on purpose: honesty over impressive numbers.
+      </div>`
+    : `<div class="opsbanner" style="border-left-color:var(--ext);background:var(--ext-bg)">
+        <strong>⚠️ ${p.unlabelledReceipts} of ${N} receipts involve a principal NOT in the
+        ops-test registry.</strong> ${p.opsReceipts} are ops-test (${p.distinctOps} internal
+        accounts). The remainder may be <strong>external participants</strong> — they appear
+        <span class="badge ext">unlabeled</span> on the
+        <a href="#/receipts">receipts</a> page. This has not been reconciled; treat with care.
+      </div>`;
 
   const tiles = `<div class="tiles">
     ${statTile("Open jobs", p.openCount)}
