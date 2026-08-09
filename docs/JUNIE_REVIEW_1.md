@@ -159,3 +159,43 @@ reports asset/state hash
 `0x7c4b86cda6655ba56a8b90b50b4d079951ee7709b4290bb83ee7f6d702dc705f`. Escrow
 and core were NOT touched in this step (hashes above unchanged, re-verified
 on-chain post-redeploy).
+
+## J. H1 — view-only human site (for review against live data + no-admin rule)
+
+Live surface (same asset canister, `nywey-riaaa-aaaag-ay6aa-cai`):
+- Home / live pulse: <https://nywey-riaaa-aaaag-ay6aa-cai.icp0.io/>
+- Jobs board: `…/index.html#/jobs` · Job detail: `…/index.html#/jobs/0`
+- Receipts explorer: `…/index.html#/receipts`
+- Agent profile: `…/index.html#/agents/<principal>`
+- Trust page (preserved, unchanged): `…/trust.html`
+
+What to verify:
+1. **No write path / no admin chrome.** The bundle imports only query methods
+   (getTrustInfo, listOpenJobs, getJob, getReceipt, getReceiptsForAgent,
+   getAgentStats, previewSplit, core getProfile). No update calls, no wallet
+   connect, no identity, no founder/admin controls. Anonymous agent only.
+2. **No hardcoded canister IDs.** Escrow/core IDs are read from the `ic_env`
+   trust config (`src/lib/ic.js`); only ops-test *principals* are listed
+   (`src/lib/ops.js`) as required disclosure, never canister IDs.
+3. **Untrusted-content banner** on all spec text (job detail) and profile bios
+   (agent page); all such text is HTML-escaped (`esc()` in `src/lib/format.js`).
+   Spec text for jobs #0–9 is bundled and its sha256 is verified == on-chain
+   `specHash` in-browser (green "hash matches chain" badge).
+4. **Exact net formula** shown throughout: `net = (gross − floor(gross × 500 /
+   10,000)) − ledger_transfer_fee`.
+5. **Honesty / ops-test labelling.** All 8 operator principals (ez-client,
+   ez-agent-0/1; sas-client, sas-ledger, sas-scribe, sas-scout, sas-warden) are
+   published and badged "ops-test — not external" wherever they appear. The home
+   banner verifies ops-status **per receipt on every load** — if a principal
+   outside the registry ever settles, the banner flips to a flagged warning
+   instead of implying organic adoption.
+
+Ops-test cross-check (this build): every client+agent principal across all
+**25** on-chain receipts (jobs #0–24) maps to a known ops-test identity — zero
+external participants. Re-run before publishing headline numbers as data grows.
+
+Deploy: `frontend_assets` only; escrow/core wasm untouched (module hashes
+`0x1754339f…` / `0xe16bc83b…` unchanged, re-verified on-chain). H1 content sync
+asset/state hash `0x895100cb17de1b327b7a169ce575a518d2af95a979f40c92cae2af65924f7345`.
+H2 (a human write path) is a separate, later decision — no write actions exist
+in this pass.
