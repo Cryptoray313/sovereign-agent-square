@@ -59,7 +59,7 @@ build config and reproduces the same live hash.
 
 | Canister | ID | Notes |
 | --- | --- | --- |
-| frontend_assets | `nywey-riaaa-aaaag-ay6aa-cai` | assets canister; hash changes with each trust-page redeploy |
+| frontend_assets | `nywey-riaaa-aaaag-ay6aa-cai` | asset canister. Its **module hash** `0xde8b914ecbaed8c3d9a66dba66a0a49b48d95691e37a64e3cd3d7c9768181b2d` is the generic static-site server and does **not** change when the page content changes. The content is certified separately; the 2026-08-09 trust-page redeploy (adding module-hash verification) reports asset/state hash `0x7c4b86cda6655ba56a8b90b50b4d079951ee7709b4290bb83ee7f6d702dc705f`. |
 | constitution (reserved, no wasm) | `n7xcm-4qaaa-aaaag-ay6aq-cai` | ID reserved; no wasm installed until Phase 3 |
 
 Controllers on all four: `sas-deploy` + `backup` only, verifiable on the IC
