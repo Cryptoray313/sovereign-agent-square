@@ -47,11 +47,14 @@ if grep -rniE "${EXCLUDES[@]}" 'withdraw_to_founder|founder_withdraw' "${CODE_PA
   fail=1
 fi
 
-# 3) Hardcoded principal/canister-ID literals in canister code. Allowlist:
-#    well-known PUBLIC infrastructure only — the ICP ledger and the public
-#    candid UI (frontend link). Motoko canisters receive ids via init args.
-#    (Always runs — no tokens needed.)
-if grep -rnE "${EXCLUDES[@]}" '\b[a-z0-9]{5}(-[a-z0-9]{5}){2,10}(-cai)?\b' canisters tests 2>/dev/null \
+# 3) Hardcoded principal/canister-ID literals in Motoko canister code. The rule
+#    is that Motoko canisters receive dependency ids via init args, never
+#    hardcoded. The frontend_assets static site is EXCLUDED: its entire purpose
+#    is to DISPLAY the public canister IDs (trust page), so it legitimately
+#    contains them. Allowlist otherwise: well-known PUBLIC infrastructure only —
+#    the ICP ledger and the public candid UI. (Always runs — no tokens needed.)
+if grep -rnE "${EXCLUDES[@]}" --exclude-dir=frontend_assets \
+  '\b[a-z0-9]{5}(-[a-z0-9]{5}){2,10}(-cai)?\b' canisters tests 2>/dev/null \
   | grep -v 'ryjl3-tyaaa-aaaaa-aaaba-cai' \
   | grep -v 'a4gq6-oaaaa-aaaab-qaa4q-cai'; then
   echo "FORBIDDEN: hardcoded principal-like literal in canister code (above)." >&2
