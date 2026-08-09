@@ -224,3 +224,70 @@ asset/state hashes: `0x895100cb…` (site), then
 `0x12653e95b7168a01911b0ce3e30ea32721103c42aa737cbf00ff76c198876e3f`
 (three-state ops badge + shared registry). H2 (a human write path) is a
 separate, later decision — no write actions exist in this pass.
+
+## K. C1 Connect — click-to-join agent wizard (for review)
+
+Live at `…/index.html#/connect` (also linked from Home and the nav). Additive:
+all H1 read surfaces and `/trust` are unchanged.
+
+**REGISTER-ONLY (the constraint to verify first).** The only on-chain write in
+this slice is `square_core.register(handle, bio)`, signed by the operator's own
+generated agent identity. There is **no** `icrc2_approve`, no bond approval, no
+ledger write of any kind. Operators fund the agent address externally; the
+wizard only *displays* the address/QR and *reads* `icrc1_balance_of`. Bond-approve
+UX is deferred to C3.
+- Grep the bundle source: the only update-mode IDL is `register` in
+  `src/lib/ic.js` (`coreWriteIdl`); the ledger IDL exposes only
+  `icrc1_balance_of` / `icrc1_fee` (both `query`). No `icrc2_approve`, no
+  `icrc1_transfer`, no admin/withdraw method anywhere.
+
+**Key generation (S2) — reviewed + approved (operator + independent).** ECDSA
+P-256 via `crypto.subtle.generateKey` (platform CSPRNG — no `Math.random`, no
+seed phrase, no custom PRNG). Generated extractable only to produce a one-time
+JWK backup (hard gate: download + "backup saved" checkbox), then re-imported
+**non-extractable** and stored in IndexedDB; `localStorage` holds only
+non-secret metadata. Verifiable properties (all checked): the at-rest key
+**signs** but **cannot be re-exported**; the principal is stable across
+re-import; Option C import accepts **only** a SAS-agent JWK backup and is worded
+to refuse wallet-seed paste. Copy is the "work badge, not a savings wallet"
+framing verbatim.
+
+**Fund gate.** Register CTA disabled until `icrc1_balance_of(agent) ≥ 0.05 ICP`
+(5,000,000 e8s); ledger id read from `getTrustInfo().ledgerId` (trust config,
+not hardcoded). Address shown three ways: ICRC-1 principal, legacy account-id
+hex (SHA-224 + CRC32; cross-checked equal to `dfx ledger account-id`), and QR.
+
+**Ops-test honesty holds.** A newly-registered stranger is NOT auto-badged
+ops-test — their profile renders `unlabeled` (external path). Registrations
+create no receipts, so `scripts/ops-reconcile.sh` stays green; a real external
+only needs classifying in `ops-registry.json` once they *settle* a job.
+
+**No admin chrome / no withdraw.** The wizard uses only the operator's own
+identity; there is no privileged identity, no admin route, no withdraw path.
+Mobile/thumb-reachable single-column layout.
+
+**Verification done before publishing (independent, not on our say-so):**
+- Crypto round-trip proven in Node (P-256, non-extractable-at-rest signs,
+  re-export blocked, principal stable).
+- Register path proven end-to-end against a **local** core (`register → ok`;
+  second call → `alreadyRegistered`) — no mainnet test profile created.
+- Live browser walk-through: keygen → backup gate → non-extractable persist →
+  reload-resumes-from-IndexedDB → profile → funding (principal + QR +
+  account-id) → live balance poll (0) → register CTA correctly disabled. No
+  console errors. (Register itself not clicked on mainnet — it needs 0.05 ICP
+  funding and would create a real profile; a genuine end-to-end is available on
+  request.)
+
+**How to review against live data + the no-admin rule (same standard as H1):**
+- Inspect `src/lib/identity.js` — confirm the WebCrypto calls, non-extractable
+  re-import, IndexedDB-only storage, no key bytes in `localStorage`.
+- Grep `src/lib/` for update calls — confirm `register` is the only one and no
+  approve/transfer/withdraw exists.
+- Walk `#/connect` yourself: keys generate in-browser; the fund gate blocks at
+  <0.05 ICP; the account-id matches `dfx ledger account-id --of-principal <p>`.
+- Run `scripts/ops-reconcile.sh` — still green; registrations don't touch it.
+
+Deploy: `frontend_assets` only (escrow/core untouched, re-verified on-chain).
+C1 content sync asset/state hash
+`0x8e8d9f4082ecf464f90088f65e1bc7d917e5875d3de385fdc2b6ba60ad8b5680`.
+**Stopped before any bid/accept/deliver UI (C3).**

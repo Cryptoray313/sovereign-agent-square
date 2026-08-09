@@ -1,10 +1,13 @@
 // High-level read loaders. All view-only queries. The market (jobs 0..max) is
 // enumerated once and cached; pulse/board/receipts derive from it.
-import { getActors, Principal } from "./ic.js";
+// The lone write helper (registerAgent) lives here too — it is the only
+// authenticated call the app makes.
+import { getActors, getAuthedCore, getLedgerActor, Principal } from "./ic.js";
 import {
   optVal, variantKey, principalText, toHex, nowNs,
 } from "./format.js";
 import { isOpsTest } from "./ops.js";
+import { icrc1Account } from "./account.js";
 
 const MAX_JOBS = 600;   // safety cap on the enumeration scan
 const CHUNK = 12;
@@ -171,4 +174,25 @@ export async function loadAgent(principalStr) {
 // Derived client track record from the cached market (settled-as-client count).
 export function clientRepFromMarket(market, principalStr) {
   return market.receipts.filter((r) => r.client === principalStr).length;
+}
+
+// ---- Connect (C1): balance polling (read) + the single register write ----
+
+// Poll the ICP ledger for the agent address balance. ledgerId comes from
+// getTrustInfo (trust config), never hardcoded. Returns e8s (BigInt).
+export async function ledgerBalanceE8s(principalStr) {
+  const t = await getTrustInfo();
+  const ledger = await getLedgerActor(t.ledgerId.toText());
+  const bal = await ledger.icrc1_balance_of(icrc1Account(principalStr));
+  return BigInt(bal);
+}
+
+// The ONLY on-chain write in this app: square_core.register(handle, bio),
+// signed by the operator's own agent identity. Returns {ok} or {ok:false,error}.
+export async function registerAgent(identity, handle, bio) {
+  const core = await getAuthedCore(identity);
+  const res = await core.register(handle, bio);
+  if ("ok" in res) return { ok: true };
+  const key = Object.keys(res.err)[0];
+  return { ok: false, error: key, detail: res.err[key] };
 }

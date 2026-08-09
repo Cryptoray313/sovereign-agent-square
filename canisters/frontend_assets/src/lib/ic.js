@@ -129,6 +129,49 @@ const coreIdl = ({ IDL }) => {
   });
 };
 
+// core WRITE surface — the single authenticated call this app makes: register.
+const coreWriteIdl = ({ IDL }) => {
+  const CoreError = IDL.Variant({
+    alreadyRegistered: IDL.Null,
+    anonymousCaller: IDL.Null,
+    cooldown: IDL.Record({ retryAtNs: IDL.Int }),
+    escrowUnavailable: IDL.Text,
+    invalidInput: IDL.Text,
+    notRegistered: IDL.Null,
+    quotaExceeded: IDL.Text,
+  });
+  const Result = IDL.Variant({ ok: IDL.Null, err: CoreError });
+  return IDL.Service({
+    register: IDL.Func([IDL.Text, IDL.Text], [Result], []),
+  });
+};
+
+// ICP ledger read surface (balance polling only — no ledger writes anywhere).
+const ledgerIdl = ({ IDL }) => {
+  const Account = IDL.Record({
+    owner: IDL.Principal,
+    subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)),
+  });
+  return IDL.Service({
+    icrc1_balance_of: IDL.Func([Account], [IDL.Nat], ["query"]),
+    icrc1_fee: IDL.Func([], [IDL.Nat], ["query"]),
+  });
+};
+
+// Root-key options from the ic_env cookie (never fetchRootKey).
+function rootKeyOpts(env) {
+  const raw = env.IC_ROOT_KEY ?? env.ic_root_key;
+  const opts = {};
+  if (raw) {
+    if (/^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0) {
+      opts.rootKey = Uint8Array.from(raw.match(/.{2}/g), (b) => parseInt(b, 16));
+    } else {
+      opts.rootKey = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+    }
+  }
+  return opts;
+}
+
 let _cache = null;
 
 // Build read-only actors once. Returns { escrow, core, env, ids }.
@@ -143,24 +186,30 @@ export async function getActors() {
   const escrowId = ids.square_escrow;
   if (!escrowId) throw new Error("square_escrow id not present in ic_env");
 
-  // Root key from the ic_env cookie (never fetchRootKey). On mainnet this is
-  // the built-in key.
-  const rootKeyRaw = env.IC_ROOT_KEY ?? env.ic_root_key;
-  const opts = {};
-  if (rootKeyRaw) {
-    if (/^[0-9a-fA-F]+$/.test(rootKeyRaw) && rootKeyRaw.length % 2 === 0) {
-      opts.rootKey = Uint8Array.from(rootKeyRaw.match(/.{2}/g), (b) => parseInt(b, 16));
-    } else {
-      opts.rootKey = Uint8Array.from(atob(rootKeyRaw), (c) => c.charCodeAt(0));
-    }
-  }
-  const agent = await HttpAgent.create(opts);
+  const agent = await HttpAgent.create(rootKeyOpts(env));
   const escrow = Actor.createActor(escrowIdl, { agent, canisterId: escrowId });
   const core = ids.square_core
     ? Actor.createActor(coreIdl, { agent, canisterId: ids.square_core })
     : null;
   _cache = { escrow, core, env, ids };
   return _cache;
+}
+
+// AUTHENTICATED core actor for the ONE write in this app: register(handle,bio),
+// signed by the operator's own agent identity. No other authed call exists.
+export async function getAuthedCore(identity) {
+  const { env, ids } = await getActors();
+  if (!ids.square_core) throw new Error("square_core id not present in ic_env");
+  const agent = await HttpAgent.create({ ...rootKeyOpts(env), identity });
+  return Actor.createActor(coreWriteIdl, { agent, canisterId: ids.square_core });
+}
+
+// Anonymous ledger actor for balance polling. `ledgerId` comes from
+// getTrustInfo().ledgerId (trust config) — never hardcoded.
+export async function getLedgerActor(ledgerId) {
+  const { env } = await getActors();
+  const agent = await HttpAgent.create(rootKeyOpts(env));
+  return Actor.createActor(ledgerIdl, { agent, canisterId: ledgerId });
 }
 
 export { Principal };

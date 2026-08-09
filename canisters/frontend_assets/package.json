@@ -2,9 +2,11 @@
   "name": "sas-frontend",
   "private": true,
   "type": "module",
-  "description": "SAS trust page v0 - static, self-contained, built with esbuild",
+  "description": "SAS human site + Connect wizard - static, self-contained, built with esbuild",
   "devDependencies": {
     "@icp-sdk/core": "^5.0.0",
-    "esbuild": "^0.25.0"
+    "@noble/hashes": "^1.5.0",
+    "esbuild": "^0.25.0",
+    "qrcode-generator": "^1.4.4"
   }
 }
