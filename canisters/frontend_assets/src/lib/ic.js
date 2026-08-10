@@ -146,15 +146,59 @@ const coreWriteIdl = ({ IDL }) => {
   });
 };
 
-// ICP ledger read surface (balance polling only — no ledger writes anywhere).
+// escrow WRITE surface — Phase A: setPayoutAccount only. No fund-moving power
+// here; it only records where the escrow sends the agent's FUTURE nets.
+const escrowWriteIdl = ({ IDL }) => {
+  const Account = IDL.Record({
+    owner: IDL.Principal,
+    subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)),
+  });
+  const JobStatus = IDL.Variant({
+    aborted: IDL.Null, assigned: IDL.Null, delivered: IDL.Null,
+    depositPending: IDL.Null, open: IDL.Null, refunded: IDL.Null,
+    refunding: IDL.Null, released: IDL.Null, releasing: IDL.Null,
+  });
+  const EscrowError = IDL.Variant({
+    anonymousCaller: IDL.Null, depositUnresolved: IDL.Null, invalidInput: IDL.Text,
+    ledgerError: IDL.Text, locked: IDL.Null, notAuthorized: IDL.Null, notFound: IDL.Null,
+    quotaExceeded: IDL.Text, wrongStatus: IDL.Record({ current: JobStatus }),
+  });
+  const Result = IDL.Variant({ ok: IDL.Null, err: EscrowError });
+  return IDL.Service({
+    setPayoutAccount: IDL.Func([Account], [Result], []),
+  });
+};
+
+// ICP ledger surface: balance/fee reads (anonymous) + icrc1_transfer (authed,
+// for the operator's non-custodial cash-out). Direct transfer only — NO approve.
 const ledgerIdl = ({ IDL }) => {
   const Account = IDL.Record({
     owner: IDL.Principal,
     subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)),
   });
+  const TransferArg = IDL.Record({
+    from_subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)),
+    to: Account,
+    amount: IDL.Nat,
+    fee: IDL.Opt(IDL.Nat),
+    memo: IDL.Opt(IDL.Vec(IDL.Nat8)),
+    created_at_time: IDL.Opt(IDL.Nat64),
+  });
+  const TransferError = IDL.Variant({
+    BadFee: IDL.Record({ expected_fee: IDL.Nat }),
+    BadBurn: IDL.Record({ min_burn_amount: IDL.Nat }),
+    InsufficientFunds: IDL.Record({ balance: IDL.Nat }),
+    TooOld: IDL.Null,
+    CreatedInFuture: IDL.Record({ ledger_time: IDL.Nat64 }),
+    TemporarilyUnavailable: IDL.Null,
+    Duplicate: IDL.Record({ duplicate_of: IDL.Nat }),
+    GenericError: IDL.Record({ error_code: IDL.Nat, message: IDL.Text }),
+  });
+  const TransferResult = IDL.Variant({ Ok: IDL.Nat, Err: TransferError });
   return IDL.Service({
     icrc1_balance_of: IDL.Func([Account], [IDL.Nat], ["query"]),
     icrc1_fee: IDL.Func([], [IDL.Nat], ["query"]),
+    icrc1_transfer: IDL.Func([TransferArg], [TransferResult], []),
   });
 };
 
@@ -204,11 +248,28 @@ export async function getAuthedCore(identity) {
   return Actor.createActor(coreWriteIdl, { agent, canisterId: ids.square_core });
 }
 
-// Anonymous ledger actor for balance polling. `ledgerId` comes from
+// Anonymous ledger actor for balance/fee reads. `ledgerId` comes from
 // getTrustInfo().ledgerId (trust config) — never hardcoded.
 export async function getLedgerActor(ledgerId) {
   const { env } = await getActors();
   const agent = await HttpAgent.create(rootKeyOpts(env));
+  return Actor.createActor(ledgerIdl, { agent, canisterId: ledgerId });
+}
+
+// AUTHENTICATED escrow actor — Phase A setPayoutAccount only, signed by the
+// operator's own agent identity.
+export async function getAuthedEscrow(identity) {
+  const { env, ids } = await getActors();
+  if (!ids.square_escrow) throw new Error("square_escrow id not present in ic_env");
+  const agent = await HttpAgent.create({ ...rootKeyOpts(env), identity });
+  return Actor.createActor(escrowWriteIdl, { agent, canisterId: ids.square_escrow });
+}
+
+// AUTHENTICATED ledger actor — signs the operator's non-custodial cash-out
+// (icrc1_transfer) with their own agent identity. No approve, no sweep account.
+export async function getAuthedLedger(identity, ledgerId) {
+  const { env } = await getActors();
+  const agent = await HttpAgent.create({ ...rootKeyOpts(env), identity });
   return Actor.createActor(ledgerIdl, { agent, canisterId: ledgerId });
 }
 

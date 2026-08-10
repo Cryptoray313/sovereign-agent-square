@@ -291,3 +291,60 @@ Deploy: `frontend_assets` only (escrow/core untouched, re-verified on-chain).
 C1 content sync asset/state hash
 `0x8e8d9f4082ecf464f90088f65e1bc7d917e5875d3de385fdc2b6ba60ad8b5680`.
 **Stopped before any bid/accept/deliver UI (C3).**
+
+## L. Phase A — payout routing + non-custodial cash-out (for review)
+
+Live at `#/me` (nav "My agent"). Two value-moving flows, each behind an explicit
+confirm screen; **frontend-only — no escrow change**, hashes stay
+`1754339f`/`e16bc83b` (re-verified on-chain post-deploy).
+
+**Confirmed against LIVE candid before coding** (not guessed): escrow
+`setPayoutAccount : (Account) -> (Result)` with `Account = {owner; opt subaccount}`;
+ledger `icrc1_transfer : (TransferArg) -> (variant{Ok:nat; Err:Icrc1TransferError})`,
+`icrc1_fee`, `icrc1_balance_of`. Both write-path candids proven against a local
+replica: `setPayoutAccount → {ok}` (no precondition), `icrc1_transfer` from an
+unfunded agent → `{Err:{InsufficientFunds:{balance:0}}}` (round-trips exactly).
+
+**Flow 1 — setPayoutAccount (routes future value).** Destination field starts
+EMPTY and is never prefilled. The confirm screen displays the **full** destination
+principal (not shortened) and warns verbatim: *"Future job nets will be paid to
+this address permanently, until you change it. Past receipts are unchanged. SAS
+does not custody your funds."* Signed by the agent's own key.
+
+**Flow 2 — cash-out (moves value, non-custodial).** Direct `icrc1_transfer` signed
+by the agent key, agent account → operator destination. **No `icrc2_approve`, no
+site-owned sweep account.** Confirm screen shows, before signing: exact amount,
+exact fee (the `icrc1_fee()` value passed explicitly as `fee:[fee]` so it can't
+drift into `BadFee`), total debit, and the full destination. Guards (before
+confirm): **balance ≤ fee → blocked**; **destination owner == agent → blocked**
+("choose an external wallet"); amount>0 and amount+fee ≤ balance.
+
+**Read-path gap (as approved).** The live escrow has **no `getPayoutAccount`**, so
+the UI cannot display the currently-set destination — it stays honest about this
+("the escrow provides no read of the current setting … this sets it going
+forward") and only shows the last value submitted **from this browser**, labelled
+as such, never a read-back. A `getPayoutAccount` getter is deferred to a future
+batched escrow rev — no one-off upgrade here.
+
+**Honest numbers.** `#/me` shows earnings/reputation from `getAgentStats`
+(cumulative, historical) AND the live withdrawable balance from
+`icrc1_balance_of` — with a one-line reconciliation hint that they intentionally
+differ ("you aren't being shorted"). P0 copy verbatim: "a work badge, not a
+savings wallet — SAS never custodies a withdrawable balance." Footer updated to
+name all three own-agent writes (register / setPayoutAccount / icrc1_transfer) and
+reaffirm no approve / no sweep / no admin / no withdraw-to-owner.
+
+**How to review (same standard as H1/C1):**
+- Grep `src/lib/` for writes — confirm exactly `register`, `setPayoutAccount`, and
+  `icrc1_transfer`; no `icrc2_approve`, no transfer to any non-operator/site account.
+- Walk `#/me`: the payout confirm shows the full principal + permanence warning and
+  never prefills; the cash-out confirm shows exact amount/fee/total/dest; the
+  self-send and balance-≤-fee guards block. (Verified live incl. the dest==agent
+  guard on member 0, which holds 0.5 ICP.)
+- `scripts/ops-reconcile.sh` stays green (no receipts created).
+
+Verified live end-to-end up to the confirm screens (not submitted on mainnet, to
+avoid changing member 0's routing / moving real funds — genuine end-to-end
+available on request). No console errors. Phase A content sync asset/state hash
+`0x981cc855f404489df9430fa0f5f525420a3bfc2f662a4fbd833f086e4277f548`.
+**Stopped before any bid/accept/deliver UI (C3).**

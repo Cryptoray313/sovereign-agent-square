@@ -7,6 +7,7 @@ import {
 } from "./lib/data.js";
 import { getActors } from "./lib/ic.js";
 import { renderConnect } from "./lib/connect.js";
+import { renderMe } from "./lib/me.js";
 import {
   esc, icp, shortPrincipal, isoDate, timeAgo, nsHours,
   untrustedBanner, statusPill, principalLink, skillsHtml, economicsCard,
@@ -30,6 +31,7 @@ const routes = [
   { re: /^\/receipts$/, view: renderReceipts },
   { re: /^\/agents\/([^/]+)$/, view: (m) => renderAgent(decodeURIComponent(m[1])) },
   { re: /^\/connect$/, view: renderConnect },
+  { re: /^\/me$/, view: renderMe },
 ];
 
 async function router() {

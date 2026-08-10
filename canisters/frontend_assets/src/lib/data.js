@@ -2,7 +2,9 @@
 // enumerated once and cached; pulse/board/receipts derive from it.
 // The lone write helper (registerAgent) lives here too — it is the only
 // authenticated call the app makes.
-import { getActors, getAuthedCore, getLedgerActor, Principal } from "./ic.js";
+import {
+  getActors, getAuthedCore, getLedgerActor, getAuthedEscrow, getAuthedLedger, Principal,
+} from "./ic.js";
 import {
   optVal, variantKey, principalText, toHex, nowNs,
 } from "./format.js";
@@ -195,4 +197,64 @@ export async function registerAgent(identity, handle, bio) {
   if ("ok" in res) return { ok: true };
   const key = Object.keys(res.err)[0];
   return { ok: false, error: key, detail: res.err[key] };
+}
+
+// ---- Phase A: payout routing + non-custodial cash-out ----
+
+export async function ledgerFeeE8s() {
+  const t = await getTrustInfo();
+  const ledger = await getLedgerActor(t.ledgerId.toText());
+  return BigInt(await ledger.icrc1_fee());
+}
+
+// Route FUTURE nets to a destination. Value-ROUTING (not a value move); does not
+// touch past receipts. Signed by the agent identity.
+export async function setPayoutAccount(identity, destPrincipalText) {
+  const escrow = await getAuthedEscrow(identity);
+  const res = await escrow.setPayoutAccount({
+    owner: Principal.fromText(destPrincipalText), subaccount: [],
+  });
+  if ("ok" in res) return { ok: true };
+  const key = Object.keys(res.err)[0];
+  return { ok: false, error: key, detail: res.err[key] };
+}
+
+// Non-custodial cash-out: direct icrc1_transfer signed by the agent key, from
+// the agent account to `dest`. Explicit amount + fee. No approve, no sweep.
+export async function cashOut(identity, destPrincipalText, amountE8s, feeE8s) {
+  const t = await getTrustInfo();
+  const ledger = await getAuthedLedger(identity, t.ledgerId.toText());
+  const res = await ledger.icrc1_transfer({
+    from_subaccount: [],
+    to: { owner: Principal.fromText(destPrincipalText), subaccount: [] },
+    amount: BigInt(amountE8s),
+    fee: [BigInt(feeE8s)],
+    memo: [],
+    created_at_time: [],
+  });
+  if ("Ok" in res) return { ok: true, block: BigInt(res.Ok) };
+  const key = Object.keys(res.Err)[0];
+  return { ok: false, error: key, detail: res.Err[key] };
+}
+
+// #/me: earnings stats (historical) + live withdrawable balance + current fee.
+export async function loadMe(principalStr) {
+  const { escrow } = await getActors();
+  const p = Principal.fromText(principalStr);
+  const t = await getTrustInfo();
+  const ledger = await getLedgerActor(t.ledgerId.toText());
+  const [statsRaw, bal, fee] = await Promise.all([
+    escrow.getAgentStats(p),
+    ledger.icrc1_balance_of({ owner: p, subaccount: [] }),
+    ledger.icrc1_fee(),
+  ]);
+  return {
+    stats: {
+      completedJobs: Number(statsRaw.completedJobs),
+      grossEarnedE8s: BigInt(statsRaw.grossEarnedE8s),
+      netEarnedE8s: BigInt(statsRaw.netEarnedE8s),
+    },
+    balanceE8s: BigInt(bal),
+    feeE8s: BigInt(fee),
+  };
 }

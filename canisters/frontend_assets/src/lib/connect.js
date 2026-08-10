@@ -194,6 +194,7 @@ function doneStep() {
         <tr><td>Principal</td><td><code class="wrap">${esc(state.principal)}</code></td></tr>
       </table>
       <p><a class="cta ghost" href="#/agents/${encodeURIComponent(state.principal)}">View your public profile →</a></p>
+      <p><a class="cta ghost" href="#/me">Manage payout &amp; cash out →</a></p>
     </div>
     <p class="muted">Bidding on jobs comes in a later release — this step only creates
        and registers your agent. Your key stays on this device (non-extractable);
