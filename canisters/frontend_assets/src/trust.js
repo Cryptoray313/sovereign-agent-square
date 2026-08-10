@@ -65,14 +65,30 @@ function row(label, value) {
 async function main() {
   const status = document.getElementById("live-status");
   try {
+    // Primary: ic_env cookie. Fallback (cookie blocked by Brave shields / some
+    // mobile browsers): the PUBLIC mainnet IDs below — verifiable on the IC
+    // dashboard — plus the agent's built-in mainnet root key (no rootKey opt).
+    const PUBLIC_IDS = {
+      square_escrow: "2f3bf-hyaaa-aaaag-ay57a-cai",
+      square_core: "2c2hr-kaaaa-aaaag-ay57q-cai",
+      frontend_assets: "nywey-riaaa-aaaag-ay6aa-cai",
+      constitution: "n7xcm-4qaaa-aaaag-ay6aq-cai",
+    };
     const env = readCanisterEnv();
-    const escrowId = env?.["PUBLIC_CANISTER_ID:square_escrow"];
-    if (!escrowId) throw new Error("escrow canister id not present in ic_env");
+    const envIds = {};
+    if (env) {
+      for (const [k, v] of Object.entries(env)) {
+        if (k.startsWith("PUBLIC_CANISTER_ID:")) envIds[k.slice("PUBLIC_CANISTER_ID:".length)] = v;
+      }
+    }
+    const usingEnv = !!envIds.square_escrow;
+    const ids = usingEnv ? envIds : PUBLIC_IDS;
+    const escrowId = ids.square_escrow;
+    if (!escrowId) throw new Error("escrow canister id unavailable");
 
-    // Root key comes from the ic_env cookie (never fetchRootKey — see
-    // canister-security skill). On mainnet this equals the built-in key.
-    // The cookie encodes it as hex (key `ic_root_key`).
-    const rootKeyRaw = env?.IC_ROOT_KEY ?? env?.ic_root_key;
+    // Root key from the ic_env cookie when present (on mainnet it equals the
+    // built-in key); otherwise no override → the agent's built-in mainnet key.
+    const rootKeyRaw = usingEnv ? (env.IC_ROOT_KEY ?? env.ic_root_key) : null;
     const agentOptions = {};
     if (rootKeyRaw) {
       if (/^[0-9a-fA-F]+$/.test(rootKeyRaw) && rootKeyRaw.length % 2 === 0) {
@@ -87,12 +103,8 @@ async function main() {
     const escrow = Actor.createActor(idlFactory, { agent, canisterId: escrowId });
     const t = await escrow.getTrustInfo();
 
-    // Every canister the deploy injected — the join flow needs ALL of these
-    // discoverable here (jobs 2/9: E1 + skeptic findings).
-    const canisters = Object.entries(env)
-      .filter(([k]) => k.startsWith("PUBLIC_CANISTER_ID:"))
-      .map(([k, v]) => [k.slice("PUBLIC_CANISTER_ID:".length), v])
-      .sort();
+    // All canister IDs (from ic_env or the public fallback), for the table below.
+    const canisters = Object.entries(ids).sort();
     const dashUrl = (id) => `https://dashboard.internetcomputer.org/canister/${id}`;
     const canisterRows = canisters
       .map(([name, id]) =>

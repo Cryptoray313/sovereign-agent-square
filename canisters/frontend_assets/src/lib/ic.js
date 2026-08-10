@@ -1,9 +1,37 @@
 // IC read layer. Canister IDs are read from the ic_env cookie (trust config)
-// injected by the asset canister — NEVER hardcoded. View-only: no update
-// calls, no wallet, no identity. The anonymous agent drives query calls.
+// injected by the asset canister. View-only reads + the operator's own-agent
+// writes; the anonymous agent drives query calls.
+//
+// Resilience fallback: some browsers block the ic_env cookie (Brave shields,
+// mobile Safari in some modes). When it is missing/unparseable, we fall back to
+// the PUBLIC mainnet canister IDs below — every one is already public and
+// verifiable on the IC dashboard and the trust page — plus the agent's BUILT-IN
+// IC mainnet root key (we simply don't pass a rootKey). This keeps the whole
+// site working cookie-less on mainnet. (Local dev always has the cookie, so the
+// fallback never fires there — and it would point at mainnet, which is correct
+// for a cookie-less production visitor.)
 import { HttpAgent, Actor } from "@icp-sdk/core/agent";
 import { safeGetCanisterEnv } from "@icp-sdk/core/agent/canister-env";
 import { Principal } from "@icp-sdk/core/principal";
+
+// Public mainnet IDs — the same values the trust page lists and the dashboard
+// shows. Used ONLY as the cookie-less fallback; ic_env remains the primary.
+const PUBLIC_MAINNET_IDS = {
+  square_escrow: "2f3bf-hyaaa-aaaag-ay57a-cai",
+  square_core: "2c2hr-kaaaa-aaaag-ay57q-cai",
+  frontend_assets: "nywey-riaaa-aaaag-ay6aa-cai",
+  constitution: "n7xcm-4qaaa-aaaag-ay6aq-cai",
+};
+
+function idsFromEnv(env) {
+  const ids = {};
+  if (env) {
+    for (const [k, v] of Object.entries(env)) {
+      if (k.startsWith("PUBLIC_CANISTER_ID:")) ids[k.slice("PUBLIC_CANISTER_ID:".length)] = v;
+    }
+  }
+  return ids;
+}
 
 // The static-site canister's ic_env cookie is url-encoded `key=value&...`
 // with a hex `ic_root_key`. Parse it directly; fall back to the SDK helper.
@@ -222,20 +250,22 @@ let _cache = null;
 export async function getActors() {
   if (_cache) return _cache;
   const env = readCanisterEnv();
-  if (!env) throw new Error("canister env unavailable");
-  const ids = {};
-  for (const [k, v] of Object.entries(env)) {
-    if (k.startsWith("PUBLIC_CANISTER_ID:")) ids[k.slice("PUBLIC_CANISTER_ID:".length)] = v;
-  }
-  const escrowId = ids.square_escrow;
-  if (!escrowId) throw new Error("square_escrow id not present in ic_env");
+  const envIds = idsFromEnv(env);
+  // Primary: ic_env cookie. Fallback (cookie blocked): public mainnet IDs +
+  // built-in mainnet root key (empty opts → no rootKey override).
+  const usingEnv = !!(env && envIds.square_escrow);
+  const ids = usingEnv ? envIds : { ...PUBLIC_MAINNET_IDS };
+  const opts = usingEnv ? rootKeyOpts(env) : {};
+  if (!ids.square_escrow) throw new Error("square_escrow id unavailable");
 
-  const agent = await HttpAgent.create(rootKeyOpts(env));
-  const escrow = Actor.createActor(escrowIdl, { agent, canisterId: escrowId });
+  const agent = await HttpAgent.create(opts);
+  const escrow = Actor.createActor(escrowIdl, { agent, canisterId: ids.square_escrow });
   const core = ids.square_core
     ? Actor.createActor(coreIdl, { agent, canisterId: ids.square_core })
     : null;
-  _cache = { escrow, core, env, ids };
+  // Cache env as {} (not undefined) in the fallback so rootKeyOpts(env) in the
+  // authed-actor builders returns {} (built-in mainnet root key), never throws.
+  _cache = { escrow, core, env: usingEnv ? env : {}, ids };
   return _cache;
 }
 

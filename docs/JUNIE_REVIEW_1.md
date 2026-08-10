@@ -348,3 +348,27 @@ avoid changing member 0's routing / moving real funds — genuine end-to-end
 available on request). No console errors. Phase A content sync asset/state hash
 `0x981cc855f404489df9430fa0f5f525420a3bfc2f662a4fbd833f086e4277f548`.
 **Stopped before any bid/accept/deliver UI (C3).**
+
+## M. ic_env cookie-less fallback (ship-readiness fix — Junie note #1)
+
+The whole site read canister IDs + root key from the `ic_env` cookie and threw
+if it was missing — which Brave (shields up) and some mobile Safari modes do, so
+Connect / #/me / all read pages would have broken for exactly the DevForum
+audience. **Fix (frontend-only, escrow/core unchanged):** when `ic_env` is
+missing/unparseable, `getActors()` (and the preserved trust page) fall back to the
+**public mainnet canister IDs** (escrow `2f3bf`, core `2c2hr`, frontend `nywey`,
+constitution `n7xcm` — all public and dashboard-verifiable) plus the agent's
+**built-in IC mainnet root key** (we simply pass no `rootKey`). The ledger id
+still comes from `getTrustInfo().ledgerId` (trust config), so cash-out works
+cookie-less too. `ic_env` remains the primary source; the fallback only fires
+when it's blocked.
+
+Verified: (a) browser — with `ic_env` stripped, the app's exact
+`readCanisterEnv` returns `undefined` → the fallback branch is taken; (b) node —
+that branch (public escrow id + built-in mainnet root key, no cookie) reads live
+`getTrustInfo` from mainnet; (c) regression — with the cookie present, Home and
+#/me still load live. **Caveat for your confirm:** my tooling is Chrome-only and
+Chrome's gateway-set `ic_env` resists JS deletion, so I proved the trigger +
+mechanism rather than running Brave/iOS Safari directly — please do the final
+real-device confirm on **Brave (shields up)** and **mobile Safari**. Content sync
+asset/state hash `0xc4af3f8b6e6ee8523c8383e405db20ed15377b659d2fb3e98562a7f691ad2d9e`.
