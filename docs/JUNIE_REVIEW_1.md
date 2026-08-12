@@ -372,3 +372,44 @@ Chrome's gateway-set `ic_env` resists JS deletion, so I proved the trigger +
 mechanism rather than running Brave/iOS Safari directly — please do the final
 real-device confirm on **Brave (shields up)** and **mobile Safari**. Content sync
 asset/state hash `0xc4af3f8b6e6ee8523c8383e405db20ed15377b659d2fb3e98562a7f691ad2d9e`.
+
+## N. C3a Bid + C3c Deliver (for review) — C3b held for design
+
+Live on job detail (`#/jobs/:id`), mounted in `#job-actions`. Both are low-risk:
+`bid(jobId)` and `deliver(jobId, hash)` are agent-key-signed with **no payment**.
+Confirmed against LIVE candid before coding: `bid: (JobId) -> (Result)`,
+`deliver: (JobId, blob) -> (Result)`, `acceptJob: (JobId) -> (Result)`. Frontend-
+only; escrow/core hashes `1754339f`/`e16bc83b` unchanged (re-verified on-chain).
+
+**C3a Bid.** States: no agent → "Connect an agent" CTA (link to `#/connect`);
+own job → blocked ("you can't bid on your own job"); open + connected + not-yet-bid
+→ "Bid with my agent" → **confirm modal showing jobId + gross + full signing
+principal** + "free, posts no bond" → `bid(jobId)`; already bid → disabled "Bid
+placed ✓". The chain exposes no bidders list, so already-bid is tracked
+client-side per principal (localStorage) and a duplicate-bid `wrongStatus` is
+handled gracefully. Reuses the C1 connected identity.
+
+**C3c Deliver.** Shown only when `status == assigned` and the connected agent is
+the assignee. Paste text or attach a file → **client-side SHA-256** (same
+`crypto.subtle` path proven for spec verification in C1) → confirm modal showing
+the **full hex hash** ("only the hash goes on-chain; content stays off-chain")
+→ `deliver(jobId, hash)` → "Delivered — client has 72h to review" copy.
+
+Untrusted-content banner on spec text is unchanged (shows on genesis jobs with
+bundled text; real jobs show hash-only, nothing untrusted to display).
+
+**Verified:** both write candids proven against a local escrow running the
+identical wasm (`bid(999)`/`deliver(999,hash)` → decoded `notFound`); live
+browser walk-through of the bid button, the confirm modal (Job #54 / 0.25 ICP /
+signing principal), and the already-bid disabled state; no console errors. A
+real bid was NOT submitted on a live client's job (the write is proven on the
+byte-identical local wasm; a genuine end-to-end is available on request). C3a/C3c
+content sync asset/state hash
+`0xe38add18981f7b62e5ec1efa0188c2fe92f2aa19bffd6b9ce4cf18e5753330c3`.
+
+**C3b Accept + bond is NOT built — held for EZ design review** (first
+`icrc2_approve` in the human UI). Design covers: exact allowance = bond
+(`agentJobBondE8s` = 0.01 ICP) + ledger fee, **SET not ADD** (compare-and-set via
+`expected_allowance`), **never infinite**, **short `expires_at`** so it can't
+outlive the single `acceptJob`, spender = escrow only and displayed in the confirm
+modal.

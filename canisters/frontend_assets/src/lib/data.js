@@ -237,6 +237,25 @@ export async function cashOut(identity, destPrincipalText, amountE8s, feeE8s) {
   return { ok: false, error: key, detail: res.Err[key] };
 }
 
+// ---- C3a bid / C3c deliver (agent-key-signed; no payment in either) ----
+
+export async function placeBid(identity, jobId) {
+  const escrow = await getAuthedEscrow(identity);
+  const res = await escrow.bid(BigInt(jobId));
+  if ("ok" in res) return { ok: true };
+  const key = Object.keys(res.err)[0];
+  return { ok: false, error: key, detail: res.err[key] };
+}
+
+// hashBytes: 32-byte Uint8Array (client-computed sha256 of the deliverable).
+export async function deliverWork(identity, jobId, hashBytes) {
+  const escrow = await getAuthedEscrow(identity);
+  const res = await escrow.deliver(BigInt(jobId), hashBytes);
+  if ("ok" in res) return { ok: true };
+  const key = Object.keys(res.err)[0];
+  return { ok: false, error: key, detail: res.err[key] };
+}
+
 // #/me: earnings stats (historical) + live withdrawable balance + current fee.
 export async function loadMe(principalStr) {
   const { escrow } = await getActors();

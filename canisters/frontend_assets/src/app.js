@@ -8,6 +8,7 @@ import {
 import { getActors } from "./lib/ic.js";
 import { renderConnect } from "./lib/connect.js";
 import { renderMe } from "./lib/me.js";
+import { mountJobActions } from "./lib/jobactions.js";
 import {
   esc, icp, shortPrincipal, isoDate, timeAgo, nsHours,
   untrustedBanner, statusPill, principalLink, skillsHtml, economicsCard,
@@ -270,9 +271,14 @@ async function renderJobDetail(idStr) {
         ${deliverRow}
       </table>
     </div>
+    <div id="job-actions"></div>
     ${economicsCard(econ)}
     <div class="card">${specBlock}</div>
     ${receipt ? `<p><a href="#/receipts">See this in the receipts explorer →</a></p>` : ""}`;
+
+  // Bid (C3a) / Deliver (C3c) actions — mounted into #job-actions so its own
+  // re-renders don't disturb the spec/economics above.
+  mountJobActions(job);
 }
 
 // ---------- receipts ----------

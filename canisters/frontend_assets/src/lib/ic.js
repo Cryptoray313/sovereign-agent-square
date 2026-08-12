@@ -192,8 +192,12 @@ const escrowWriteIdl = ({ IDL }) => {
     quotaExceeded: IDL.Text, wrongStatus: IDL.Record({ current: JobStatus }),
   });
   const Result = IDL.Variant({ ok: IDL.Null, err: EscrowError });
+  const JobId = IDL.Nat;
   return IDL.Service({
     setPayoutAccount: IDL.Func([Account], [Result], []),
+    // C3a bid (jobId only, no payment) + C3c deliver (jobId + payload hash blob).
+    bid: IDL.Func([JobId], [Result], []),
+    deliver: IDL.Func([JobId, IDL.Vec(IDL.Nat8)], [Result], []),
   });
 };
 
