@@ -256,6 +256,70 @@ export async function deliverWork(identity, jobId, hashBytes) {
   return { ok: false, error: key, detail: res.err[key] };
 }
 
+// ---- C3b: accept + bond (bounded, expiring, spender-locked allowance) ----
+
+// Context for the confirm modal + guards: bond, fee, live balance, current
+// agent->escrow allowance, and the escrow spender id (from trust config).
+export async function loadAcceptContext(agentPrincipalStr) {
+  const { ids } = await getActors();
+  const t = await getTrustInfo();
+  const ledger = await getLedgerActor(t.ledgerId.toText());
+  const p = Principal.fromText(agentPrincipalStr);
+  const spender = { owner: Principal.fromText(ids.square_escrow), subaccount: [] };
+  const [bal, fee, allowance] = await Promise.all([
+    ledger.icrc1_balance_of({ owner: p, subaccount: [] }),
+    ledger.icrc1_fee(),
+    ledger.icrc2_allowance({ account: { owner: p, subaccount: [] }, spender }),
+  ]);
+  return {
+    bondE8s: BigInt(t.agentJobBondE8s),
+    feeE8s: BigInt(fee),
+    balanceE8s: BigInt(bal),
+    currentAllowanceE8s: BigInt(allowance.allowance),
+    escrowId: ids.square_escrow,
+  };
+}
+
+// Approve EXACTLY bond+fee (SET via expected_allowance compare-and-set), 5-minute
+// expiry, spender = escrow only; then acceptJob (escrow pulls the bond). On
+// acceptJob failure, revoke the allowance to 0 (best-effort; the expiry bounds it).
+export async function acceptWithBond(identity, jobId, ctx) {
+  const { ids } = await getActors();
+  const t = await getTrustInfo();
+  const ledger = await getAuthedLedger(identity, t.ledgerId.toText());
+  const spender = { owner: Principal.fromText(ids.square_escrow), subaccount: [] };
+  const amount = ctx.bondE8s + ctx.feeE8s;
+  const expiresAt = BigInt(Date.now()) * 1_000_000n + 300_000_000_000n; // now + 5 min (ns)
+
+  // 1) approve — exact amount, compare-and-set, expiring, spender-locked.
+  const ap = await ledger.icrc2_approve({
+    from_subaccount: [], spender, amount,
+    expected_allowance: [ctx.currentAllowanceE8s],
+    expires_at: [expiresAt], fee: [ctx.feeE8s], memo: [], created_at_time: [],
+  });
+  if ("Err" in ap) {
+    const key = Object.keys(ap.Err)[0];
+    return { ok: false, stage: "approve", error: key, detail: ap.Err[key] };
+  }
+
+  // 2) acceptJob — escrow pulls the bond via icrc2_transfer_from.
+  const escrow = await getAuthedEscrow(identity);
+  const res = await escrow.acceptJob(BigInt(jobId));
+  if ("ok" in res) return { ok: true };
+
+  // 3) accept failed -> revoke standing allowance to 0 (best-effort).
+  let revoked = false;
+  try {
+    const rev = await ledger.icrc2_approve({
+      from_subaccount: [], spender, amount: 0n,
+      expected_allowance: [amount], expires_at: [], fee: [ctx.feeE8s], memo: [], created_at_time: [],
+    });
+    revoked = "Ok" in rev;
+  } catch (_) { /* the 5-min expiry still bounds any leftover */ }
+  const key = Object.keys(res.err)[0];
+  return { ok: false, stage: "accept", error: key, detail: res.err[key], revoked };
+}
+
 // #/me: earnings stats (historical) + live withdrawable balance + current fee.
 export async function loadMe(principalStr) {
   const { escrow } = await getActors();

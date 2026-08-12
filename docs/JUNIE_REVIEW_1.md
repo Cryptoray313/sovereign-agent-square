@@ -413,3 +413,55 @@ content sync asset/state hash
 `expected_allowance`), **never infinite**, **short `expires_at`** so it can't
 outlive the single `acceptJob`, spender = escrow only and displayed in the confirm
 modal.
+
+## O. C3b Accept + bond (for review — EZ-approved design, highest-risk surface)
+
+The first `icrc2_approve` in the human UI, on job detail when the client has
+selected the connected agent (`selectedAgent == me && agent != me`). Frontend-
+only; escrow/core `1754339f`/`e16bc83b` unchanged (re-verified on-chain). Live
+candid confirmed before coding: `acceptJob:(JobId)->Result`,
+`icrc2_approve:(ApproveArgs)->ApproveResult`, `icrc2_allowance` query.
+
+**The allowance (the whole point):**
+- **Exact, never infinite:** `amount = bond + ledger_fee` (0.01 + 0.0001 = 0.0101
+  ICP). `bond` from `getTrustInfo().agentJobBondE8s` (trust config).
+- **SET not ADD:** `expected_allowance = <current allowance, read live>` — a
+  compare-and-set; any concurrent change → `AllowanceChanged` and nothing is
+  granted. This (not the expiry) is what prevents allowance stacking.
+- **Spender = escrow only, and VERIFIABLE:** `spender = {owner: <square_escrow
+  from trust config>, subaccount: null}`. The confirm modal shows the full escrow
+  principal **and cross-links to the trust page** where that same ID is listed
+  dashboard-verifiable — turning "trust this" into "verify this" on the one screen
+  where approve safety lives.
+- **Can't outlive the single acceptJob:** `expires_at = now + ~5 min` (EZ-approved
+  window — long enough that IC latency/one retry won't strand a legitimate accept;
+  the compare-and-set, not the expiry, bounds stacking); the flow calls `acceptJob`
+  **immediately** after approve; and if `acceptJob` fails, the allowance is
+  **revoked to 0** (best-effort `icrc2_approve amount:0`, the expiry backstops it).
+- `fee:[icrc1_fee]` explicit (no `BadFee` drift). Direct approve — **no infinite
+  allowance, no site-owned spender, no sweep**.
+
+**Guards before the confirm modal:** `selectedAgent == me`; and
+`balance >= bond + 2×fee` (the approve and the escrow's transfer_from each cost a
+fee) — else an "underfunded, fund your agent" note linking to `#/me`.
+
+**Confirm modal:** bond (refundable), ledger fee, allowance granted, spender (full
+principal + trust-page link), "expires ~5 minutes", copy "pulls exactly your bond,
+once, then it expires — no standing approval," total ≈ 0.0102 ICP.
+
+**Verified:** all three C3b write candids proven against a local escrow running
+the byte-identical wasm + the real ICP ledger — `icrc2_allowance` →
+`{allowance:0}`, `icrc2_approve` (exact amount + `expected_allowance:[0]` + expiry
++ fee) → decoded `InsufficientFunds`, `acceptJob(999)` → `notFound`. The
+allowance-pull mechanism the escrow uses (`icrc2_transfer_from`) is the same one
+proven by all 40 production settlements. Bid card regression-clean after adding
+C3b. C3b content sync asset/state hash
+`0x9e1bd2159c8a7ed6a49288e2a3ff89199d21e6b17e1342709a1ea0581ae2e4f0`.
+
+**For your in-browser confirm:** the Accept card renders only when the connected
+agent has been *selected* on a job — I couldn't reach that state for the test
+agent (no client selected it), so please exercise Accept (and Deliver) with a
+crew agent that is mid-lifecycle. Expect: confirm modal shows bond/fee/allowance/
+spender+trust-link/~5-min expiry; the balance and `selectedAgent` guards hold; a
+successful accept moves the card to Deliver. The **full loop bid→accept→deliver**
+is now wired end-to-end in the UI.

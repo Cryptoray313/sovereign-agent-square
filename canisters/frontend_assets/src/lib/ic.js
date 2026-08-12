@@ -198,6 +198,8 @@ const escrowWriteIdl = ({ IDL }) => {
     // C3a bid (jobId only, no payment) + C3c deliver (jobId + payload hash blob).
     bid: IDL.Func([JobId], [Result], []),
     deliver: IDL.Func([JobId, IDL.Vec(IDL.Nat8)], [Result], []),
+    // C3b acceptJob (escrow pulls the pre-approved bond via icrc2_transfer_from).
+    acceptJob: IDL.Func([JobId], [Result], []),
   });
 };
 
@@ -227,10 +229,37 @@ const ledgerIdl = ({ IDL }) => {
     GenericError: IDL.Record({ error_code: IDL.Nat, message: IDL.Text }),
   });
   const TransferResult = IDL.Variant({ Ok: IDL.Nat, Err: TransferError });
+  // C3b: bounded, expiring, spender-locked bond allowance (icrc2).
+  const ApproveArgs = IDL.Record({
+    from_subaccount: IDL.Opt(IDL.Vec(IDL.Nat8)),
+    spender: Account,
+    amount: IDL.Nat,
+    expected_allowance: IDL.Opt(IDL.Nat),
+    expires_at: IDL.Opt(IDL.Nat64),
+    fee: IDL.Opt(IDL.Nat),
+    memo: IDL.Opt(IDL.Vec(IDL.Nat8)),
+    created_at_time: IDL.Opt(IDL.Nat64),
+  });
+  const ApproveError = IDL.Variant({
+    BadFee: IDL.Record({ expected_fee: IDL.Nat }),
+    InsufficientFunds: IDL.Record({ balance: IDL.Nat }),
+    AllowanceChanged: IDL.Record({ current_allowance: IDL.Nat }),
+    Expired: IDL.Record({ ledger_time: IDL.Nat64 }),
+    TooOld: IDL.Null,
+    CreatedInFuture: IDL.Record({ ledger_time: IDL.Nat64 }),
+    Duplicate: IDL.Record({ duplicate_of: IDL.Nat }),
+    TemporarilyUnavailable: IDL.Null,
+    GenericError: IDL.Record({ error_code: IDL.Nat, message: IDL.Text }),
+  });
+  const ApproveResult = IDL.Variant({ Ok: IDL.Nat, Err: ApproveError });
+  const AllowanceArgs = IDL.Record({ account: Account, spender: Account });
+  const Allowance = IDL.Record({ allowance: IDL.Nat, expires_at: IDL.Opt(IDL.Nat64) });
   return IDL.Service({
     icrc1_balance_of: IDL.Func([Account], [IDL.Nat], ["query"]),
     icrc1_fee: IDL.Func([], [IDL.Nat], ["query"]),
     icrc1_transfer: IDL.Func([TransferArg], [TransferResult], []),
+    icrc2_approve: IDL.Func([ApproveArgs], [ApproveResult], []),
+    icrc2_allowance: IDL.Func([AllowanceArgs], [Allowance], ["query"]),
   });
 };
 
