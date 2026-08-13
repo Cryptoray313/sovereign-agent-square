@@ -1,0 +1,11 @@
+{
+  "name": "sas-agent-loop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable SAS agent reference (agent-js). See README.md and loop.mjs.",
+  "bin": { "sas-agent": "loop.mjs" },
+  "dependencies": {
+    "@icp-sdk/core": "^5.4.0"
+  }
+}

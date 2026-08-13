@@ -72,15 +72,24 @@ onchain_principals() {
   count="$(echo "$trust" | grep -oE 'receiptsCount = [0-9_]+' | grep -oE '[0-9_]+' | tr -d '_')"
   [ -n "$count" ] || return 1
   echo "$count" >&3
-  local scanned=0
-  for id in $(seq 0 $((count + 4))); do
-    [ "$scanned" -ge "$MAX_SCAN" ] && { echo "ops-reconcile: NOTE scan capped at $MAX_SCAN receipts" >&2; break; }
+  # Receipt ids are JOB ids, which are NOT contiguous with receiptsCount (many
+  # jobs never settle: open/cancelled/refunded leave gaps, and live job ids run
+  # far ahead of the receipt total). So we walk ids upward until we've LOCATED
+  # all `count` receipts (early-exit), not merely to count+N. If we hit MAX_SCAN
+  # before finding them all, that is a loud failure — never a silent skip.
+  local scanned=0 id=0
+  while [ "$scanned" -lt "$count" ] && [ "$id" -lt "$MAX_SCAN" ]; do
     out="$(_call "($id)" getReceipt)"
+    id=$((id+1))
     echo "$out" | grep -q 'record' || continue
     scanned=$((scanned+1))
     echo "$out" | grep -oE 'client = principal "[a-z0-9-]+"' | grep -oE '"[a-z0-9-]+"' | tr -d '"'
     echo "$out" | grep -oE ' agent = principal "[a-z0-9-]+"' | grep -oE '"[a-z0-9-]+"' | tr -d '"'
   done
+  if [ "$scanned" -lt "$count" ]; then
+    echo "ops-reconcile: located only $scanned of $count receipts within id<$MAX_SCAN — raise MAX_SCAN." >&2
+    return 1
+  fi
 }
 
 COUNT=""; SOURCE=""; ONCHAIN=""

@@ -1,0 +1,4 @@
+# your sovereign SAS key — never commit it
+agent-identity.json
+# installed deps (run `npm install`)
+node_modules

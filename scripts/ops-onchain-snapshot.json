@@ -1,13 +1,15 @@
 {
   "source": "mainnet",
-  "receiptsCount": 25,
+  "receiptsCount": 42,
   "principals": [
     "3cg5u-5v4mc-rj66x-ve4n6-tc53t-t6ein-bb4wy-gzsgm-53f6t-35p2n-qae",
     "77q4c-6lllv-6mkft-dz3ov-bnnmz-ghadq-juu5k-sc2ky-wv2ud-tiuws-kae",
     "ebo7w-zlxul-p2wq5-gmafw-qtsom-hil4z-vxnuu-zorow-fy7lg-aagdc-nae",
     "hixge-rvkfa-fvoez-m76lt-mtx65-bepgv-za2sa-ay77o-s2v3g-iwbek-zqe",
+    "ll5gs-azp6i-gig26-ygo4n-qqaut-4an7r-dsnuz-tgdff-h2mgx-shthe-nae",
     "ncyf6-ltefd-qupda-krywn-qrd7a-hy32r-ivxnm-sofrt-vjfwt-2x32o-4qe",
     "nf7y3-uop6k-tt33a-fge27-vux4e-yaixe-3x5gf-f6tyg-sgyy6-qhtm5-kqe",
+    "psypv-7zrh6-l3en6-gzwfk-unk2f-3hdbg-37fba-zibiz-ndsxp-wz4vv-dqe",
     "v6dfb-l2g4s-524si-ablbl-abjru-xk6dm-ntsmi-i6vfq-4g4a4-j2jbv-yqe",
     "vcbtl-lflfw-e4m5r-ork4i-fgyhy-fm4y5-ryx4h-sffnh-3pnjo-zcb43-5ae"
   ]
