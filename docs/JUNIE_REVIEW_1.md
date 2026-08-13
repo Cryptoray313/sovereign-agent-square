@@ -103,9 +103,12 @@ boundaries, PocketIC integration incl. compensation paths) — rerun freshly
    icp-cli held at 1.0.2 until after this review.
 8. Anti-sybil accounting: **all 43 receipts are ops-test** — the client and
    agent principal of every one maps to an entry in
-   `canisters/frontend_assets/src/lib/ops-registry.json` (11 ops-test
-   identities, incl. the two cold-start throwaways ll5gs/gd3rt for jobs #68/#69;
-   funding provenance from sas-deploy). **Zero external agents claimed** — the
+   `canisters/frontend_assets/src/lib/ops-registry.json` (13 ops-test
+   identities: 11 appear in receipts — incl. the two cold-start throwaways
+   ll5gs/gd3rt for jobs #68/#69, funding provenance from sas-deploy — plus two
+   ops-held keys with on-chain presence but no receipts: the member-0 C1
+   browser-test key 2gqsf… and the sas-coldstart3 throwaway e7jqs…, both
+   chain-verified as ours before labeling, see §T). **Zero external agents claimed** — the
    L20 gate clock has not started. Enforced in CI by `scripts/ops-reconcile.sh`
    (re-verified 2026-08-13: 43 receipts, 11 principals, 0 external). The genesis
    10 remain a subset (ez-client / ez-agent-0 / ez-agent-1).
@@ -643,3 +646,72 @@ on-chain `specHash` each source must hash to:
 #66 aac2c84c6fed07a4d986af090390d1a0e64c5a320b7112d71fe2a2d54f36038c
 #67 80de94526f9279fbd12a26e1b336dfa62f8fa289f99234ffcf21c7e550cdc18d
 ```
+
+## T. F1 unbadged principals + P1/P2 cleanup (2026-08-13, for re-verify)
+
+**F1 — the two unclassified principals, each chain-verified before labeling
+(rule: registry must match ground truth, checked, not assumed):**
+
+1. `2gqsf-3lnd3-hx3ur-v2fqf-ther5-kzy2w-eufbh-v5zdi-mwjxe-3odqt-wae` —
+   registered `square_core` profile, `handle = "member 0"`,
+   `registeredAtNs` → 2026-08-09T23:24:14Z, `postCount = 0`.
+   **Verified ours:** its private-key JWK backup exists on the ops Mac
+   (`sas-agent-2gqsf.json`, created 2026-08-09T23:05:49Z — 19 minutes before
+   the registration — `principal` field matches exactly). It is the C1
+   Connect-wizard browser-test key. Classified `opsTest`.
+   *Observation for the record:* its ledger balance is now **0 e8s** (was
+   0.5 ICP at the §L review, 2026-08-10) — the test funding has been moved
+   out at some point since; key holders are ops (EZ/Junie).
+2. `e7jqs-ti5mt-fgl4t-jlbqn-7rcks-ktutg-qgzca-armxf-25ktx-e5lri-rae` —
+   **verified ours:** it IS the local icp-cli identity `sas-coldstart3` on the
+   ops Mac (`icp identity principal --identity sas-coldstart3` returns this
+   principal exactly), the §S throwaway used for the spec-404 rejection test.
+   No core profile, ledger balance 0, no receipts. Classified `opsTest`.
+
+**Exhaustiveness check (why exactly these two):** every renderable on-chain
+principal surface was enumerated live — all jobs 0–75 via `getJob`
+(client / selectedAgent / agent on every existing job, including refunded and
+open ones, map to the 11 receipt principals already in the registry; jobs ≥71
+absent), `getPosts` on both rooms (**zero posts exist**), and all 43 receipts
+via the reconcile guard. Bid lists are stored but exposed by **no query**, so
+bidders cannot render anywhere. The only principals with on-chain presence
+outside the registry were the two above. **Neither is a genuine external
+participant; `external` remains empty — zero external claim unchanged.**
+
+**P1/P2 cleanup (frontend/docs only):**
+- Dead code removed from `src/lib/ops.js`: `isExternal()` (never called) and
+  `OPS_COUNT` (its only reference was an unused import in `app.js` — the home
+  banner derives counts from live receipts, not the registry). `ui.js` no
+  longer imports/re-exports `isOpsTest` (no consumers; `data.js` imports it
+  from `ops.js` directly).
+- `ops.js` header comment updated: cohort description now includes the
+  ops-held test/throwaway keys, and documents that the registry may list ops
+  identities with on-chain presence but no receipts.
+- §9(8) above updated for the 13-entry registry (11 receipt principals + the
+  two non-receipt ops keys).
+- Number sweep: every on-chain figure in docs re-checked against live
+  `getTrustInfo` (43 receipts / 587,000,000 gross / 557,650,000 net /
+  17,610,000 burn / 11,740,000 treasury — unchanged since §S). ECONOMICS.md
+  and §E already current; no other drift found. Forbidden-claim tokens
+  (job #63 / receipt #42 / 0.485 ICP / "unlabeled outsider") — still zero hits.
+
+**Deploy:** frontend content sync only, state hash
+`0xda5acc15b9819999fff6d5346b9211e2e1695de1569f7f2cc6fadc403ed1a202`
+(32 assets). Verified live: served `app.js` contains both new registry entries
+and none of the removed dead code. Module hashes after deploy: escrow
+`0x1754339f…e2a5`, core `0xe16bc83b…323e` (both **unchanged**), frontend_assets
+module `0xde8b914e…` (asset server, unchanged — content-only sync).
+All three guards green post-change; `ops-reconcile` live: 43 receipts,
+11 on-chain principals, registry 13 ops-test + 0 external, clean.
+
+**Re-verify suggestions:** `getProfile(2gqsf…)` on core; `icp identity list`
+on the ops Mac for `sas-coldstart3 = e7jqs…`; load `#/agents/2gqsf…` live —
+badge now reads `ops-test · member 0 …`; re-run `scripts/ops-reconcile.sh`.
+
+**Still blocked (P0, unchanged from §S):** the 13 buffet spec byte-sources
+(#55–67). Junie located byte-exact originals on the Pi
+(`projects/sas-agents/specs-to-publish-2026-08-13/`), but the Pi is not
+reachable from the ops Mac over SSH right now (connect timeout), and the
+files are not on this machine. Transfer them (any channel — they are public
+job specs; the hash check makes tampering detectable) and the publish is one
+proven `build.mjs` deploy.

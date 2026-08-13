@@ -14,7 +14,7 @@ import {
   untrustedBanner, statusPill, principalLink, skillsHtml, economicsCard,
   loading, errorBox, statTile, NET_FORMULA,
 } from "./lib/ui.js";
-import { OPS_COUNT, opsBadgeHtml } from "./lib/ops.js";
+import { opsBadgeHtml } from "./lib/ops.js";
 
 const app = () => document.getElementById("app");
 

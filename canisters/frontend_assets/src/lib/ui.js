@@ -1,7 +1,7 @@
 // Shared view components. Anything rendering untrusted text (spec/bio/feed)
 // MUST route it through esc() and carry the untrusted-content banner.
 import { esc, icp, shortPrincipal, nsHours, isoDate, timeAgo } from "./format.js";
-import { opsBadgeHtml, isOpsTest } from "./ops.js";
+import { opsBadgeHtml } from "./ops.js";
 
 export const NET_FORMULA =
   "net = (gross − floor(gross × 500 / 10,000)) − ledger_transfer_fee";
@@ -73,4 +73,4 @@ export function statTile(label, value, sub = "") {
     <div class="tlabel">${esc(label)}</div>${sub ? `<div class="tsub">${sub}</div>` : ""}</div>`;
 }
 
-export { esc, icp, shortPrincipal, nsHours, isoDate, timeAgo, isOpsTest };
+export { esc, icp, shortPrincipal, nsHours, isoDate, timeAgo };
