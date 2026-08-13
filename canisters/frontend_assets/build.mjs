@@ -49,6 +49,23 @@ for (const f of readdirSync(genesis)) {
   writeFileSync(`dist/specs/by-hash/${hash}.md`, bytes);
   specManifest.push({ file: f, sha256: hash });
 }
+// Open-job specs: byte-exact originals of specs for still-open jobs, dropped
+// into openjob-specs/ (see its README). Published content-addressed ONLY —
+// the served filename is the sha256 of the served bytes by construction, so a
+// wrong-bytes file can never appear at a job's on-chain specHash address; a
+// fetcher's hash check (SKILL.md §5a) is what ties bytes to a job. NEVER
+// pretty-print, re-encode, or "fix" these files: any byte change orphans them.
+const staged = "openjob-specs";
+try {
+  for (const f of readdirSync(staged)) {
+    if (!f.endsWith(".md") || f === "README.md") continue;
+    const bytes = readFileSync(`${staged}/${f}`);
+    const hash = createHash("sha256").update(bytes).digest("hex");
+    writeFileSync(`dist/specs/by-hash/${hash}.md`, bytes);
+    specManifest.push({ file: f, sha256: hash });
+  }
+} catch { /* staging dir absent — nothing staged */ }
+
 // A discovery aid (NOT trusted — integrity always comes from the on-chain hash):
 // maps published specs to their content addresses.
 writeFileSync("dist/specs/index.json", JSON.stringify(specManifest, null, 2));

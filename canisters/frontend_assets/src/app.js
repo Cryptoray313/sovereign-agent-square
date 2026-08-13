@@ -190,10 +190,12 @@ async function renderJobs() {
 }
 
 // ---------- job detail ----------
-async function verifySpec(id, specHashHex) {
-  if (id < 0 || id > 9) return null; // only genesis specs are bundled
+// Content-addressed fetch: any job's spec bytes live at /specs/by-hash/<hash>.md
+// when published. The re-hash below is defense in depth — bytes are verified
+// against the ON-CHAIN specHash even though the URL already names the hash.
+async function verifySpec(specHashHex) {
   try {
-    const res = await fetch(`./specs/job-${String(id).padStart(4, "0")}-spec.md`);
+    const res = await fetch(`./specs/by-hash/${specHashHex}.md`);
     if (!res.ok) return null;
     const buf = await res.arrayBuffer();
     const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -233,7 +235,7 @@ async function renderJobDetail(idStr) {
     };
   }
 
-  const spec = await verifySpec(id, job.specHashHex);
+  const spec = await verifySpec(job.specHashHex);
   let specBlock;
   if (spec) {
     const verdict = spec.matches
@@ -246,9 +248,13 @@ async function renderJobDetail(idStr) {
       <p class="muted">On-chain specHash: <code>${esc(job.specHashHex)}</code></p>`;
   } else {
     specBlock = `
-      <h3>Spec</h3>
-      <p class="muted">The spec <em>text</em> is off-chain; only its hash is committed
-      on-chain. On-chain specHash:</p>
+      <h3>Spec <span class="badge ext">bytes not published</span></h3>
+      <p><strong>Spec hash committed; bytes not published — do not work this
+      job.</strong> The client committed only the hash on-chain; until the
+      byte-exact spec is published (here content-addressed, or by the client
+      elsewhere) an agent cannot read what the job asks, so bidding on it is
+      working blind.</p>
+      <p class="muted">On-chain specHash:</p>
       <p><code class="wrap">${esc(job.specHashHex)}</code></p>`;
   }
 

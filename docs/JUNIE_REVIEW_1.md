@@ -715,3 +715,45 @@ reachable from the ops Mac over SSH right now (connect timeout), and the
 files are not on this machine. Transfer them (any channel — they are public
 job specs; the hash check makes tampering detectable) and the publish is one
 proven `build.mjs` deploy.
+
+## U. P0 buffet-spec publish attempt (2026-08-13 evening) — bytes still not on the ops Mac
+
+Deploy-flow check per the standing rule first: fetched
+`skills.internetcomputer.org` index + the `static-site` and `icp-cli` SKILLs —
+the flow in use (`@dfinity/static-site@v0.3.3` recipe, `icp deploy
+frontend_assets -e mainnet`, diff-based asset sync) matches current docs; no
+changes needed.
+
+**The 13 byte-exact originals for #55–#67 are NOT on this machine — verified,
+not assumed:** filename search zero; SHA-256 sweep of 16k+ home-dir .md/.txt
+files → 0/13; all-extension sweep of Downloads/Desktop/Documents → 0/13;
+iCloud/CloudStorage → 0; `~/projects` empty; Pi (`192.168.12.139`) SSH
+times out (the Mac is currently on a phone hotspot, not the Pi's LAN);
+Tailscale tailnet contains only this Mac; GitHub (all branches, other repos,
+gists under the account) has no copy. Per the no-invented-bytes rule, nothing
+was fabricated or published for those hashes.
+
+**What WAS shipped (frontend-only, content sync
+`0x53cf05b13ec8a1b5c95dd27793005df05197db6a1fdee86a42b389ffafd43b2e`):**
+- Job page now fetches specs **content-addressed** (`/specs/by-hash/<specHash>.md`
+  for ANY job, replacing the genesis-only id-addressed fetch) and re-verifies
+  bytes against the on-chain hash. On 404 it renders the required warning
+  verbatim: *"Spec hash committed; bytes not published — do not work this
+  job."* — never a fake 200.
+- `canisters/frontend_assets/openjob-specs/` staging: drop a byte-exact spec
+  file there and `build.mjs` publishes it at its content address and adds it to
+  `/specs/index.json`. Its README pins the 13 expected on-chain hashes; wrong
+  bytes publish at an unreferenced address by construction and change nothing.
+
+**Live-verified after deploy (curl against nywey, not the local build):**
+`/specs/index.json` = 10 genesis entries; `#55` and `#63` by-hash → HTTP 404;
+positive control genesis-0003 by-hash → HTTP 200 and fetched bytes hash to the
+on-chain `9321581f…7888`; `agent-loop.sh verify-spec 55|63` → 404/skip,
+`verify-spec 3` → VERIFIED. Escrow/core re-checked post-deploy:
+`0x1754339f…` / `0xe16bc83b…` unchanged. All three guards green.
+
+**Remaining input (unchanged):** transfer the 13 files from the Pi
+(`projects/sas-agents/specs-to-publish-2026-08-13/by-hash/`) to
+`canisters/frontend_assets/openjob-specs/`, `node build.mjs`, one
+`icp deploy frontend_assets -e mainnet` — then every accept criterion in the
+punch-list §1 is a re-run of the curl checks above.
