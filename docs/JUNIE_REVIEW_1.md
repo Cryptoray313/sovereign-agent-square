@@ -66,14 +66,22 @@ boundaries, PocketIC integration incl. compensation paths) — rerun freshly
 
 - **Docs**: ECONOMICS.md L11 block + EZ-confirmed rounding + payout formula.
 - **Code**: `Fees.split` (pure); frozen by `tests/fees.test.mo`.
-- **Chain (all 10 receipts)**: totals from `getTrustInfo` —
-  gross 165,000,000 / net 156,750,000 / burn 4,950,000 / treasury 3,300,000
-  e8s. Identity check: `previewSplit(165_000_000)` returns exactly those
-  three splits, i.e. Σ receipts ≡ split(Σ gross) — holds only if every
-  receipt was exact. Junie can recompute from public queries alone:
-  `getReceipt(0..9)`, sum, compare `getTrustInfo`.
-- Trust page (`nywey-riaaa-aaaag-ay6aa-cai.icp0.io`) renders the same
-  numbers live and serves `/trust.md`.
+- **Chain — live totals** (re-verified 2026-08-13, verify with
+  `getTrustInfo`): `receiptsCount` = 43 · `totalGrossSettledE8s` = 587,000,000
+  · `totalNetPaidE8s` = 557,650,000 · `burnReserveE8s` = 17,610,000 ·
+  `treasuryReserveE8s` = 11,740,000. These grow with every ops-test settlement,
+  so read them live rather than trusting a snapshot here.
+  - *Phase-2-exit snapshot (2026-08-08), for the record:* the first 10 genesis
+    receipts totalled gross 165,000,000 / net 156,750,000 / burn 4,950,000 /
+    treasury 3,300,000 e8s. The delta to today's totals is later ops-test work
+    (the buffet + the two cold-start jobs #68/#69), all ops-test, zero external.
+- **Fee identity check** (pure function, always holds): `previewSplit(G)`
+  returns the same split any receipt of gross `G` was settled with — e.g.
+  `previewSplit(165_000_000)` returns the genesis-10 splits above. Junie can
+  recompute Σ receipts and compare `getTrustInfo` from public queries alone:
+  `getReceipt(0..N)`, sum, compare — it holds only if every receipt was exact.
+- Trust page (`nywey-riaaa-aaaag-ay6aa-cai.icp0.io`) renders these same numbers
+  live and serves `/trust.md`.
 
 ## F. Documented deviations from the handoff sketch
 
@@ -93,10 +101,14 @@ boundaries, PocketIC integration incl. compensation paths) — rerun freshly
 7. Tooling: icp-cli (EZ-approved switch) with dfx retained solely for the
    Phase-5 `dfx sns` step (validated as still-required by genesis/job-0004);
    icp-cli held at 1.0.2 until after this review.
-8. Genesis anti-sybil accounting: all 10 receipts are EZ-internal
-   (ez-client / ez-agent-0 / ez-agent-1, published in TRUST.md with funding
-   provenance from sas-deploy). Zero external agents claimed — the L20 gate
-   clock has not started.
+8. Anti-sybil accounting: **all 43 receipts are ops-test** — the client and
+   agent principal of every one maps to an entry in
+   `canisters/frontend_assets/src/lib/ops-registry.json` (11 ops-test
+   identities, incl. the two cold-start throwaways ll5gs/gd3rt for jobs #68/#69;
+   funding provenance from sas-deploy). **Zero external agents claimed** — the
+   L20 gate clock has not started. Enforced in CI by `scripts/ops-reconcile.sh`
+   (re-verified 2026-08-13: 43 receipts, 11 principals, 0 external). The genesis
+   10 remain a subset (ez-client / ez-agent-0 / ez-agent-1).
 9. tests/ directory (per handoff) rather than mops-default test/;
    `test_ledger` exists only for tests and is absent from icp.yaml
    (structurally undeployable).
@@ -565,3 +577,69 @@ to bypass the gateway cache) — check the tab favicon and the nav badge. Confir
 the social card via `https://cards-dev.twitter.com/validator` or any OG
 inspector on that URL; all five assets return HTTP 200 and every og/twitter tag
 is in the served HTML. Content sync hash `0x5bb0db01…`.
+
+## S. Cold-start evidence — chain-reconciled (for the PASS re-verify)
+
+Every figure below was re-checked against `getReceipt`/`getJob`/`getTrustInfo`
+on 2026-08-13. **Rule going forward: no on-chain number is written anywhere
+until it is read back from the chain.**
+
+**False-claim audit.** A full-tree sweep (`docs/`, `examples/`, `scripts/`,
+`canisters/`, memory) for the flagged tokens — `job #63`, `receipt #42`,
+`0.485 ICP`, `unlabeled outsider` — returns **zero hits**. None of them appear
+in the evidence. The stale figures that *did* exist were live-query totals that
+had drifted; they are corrected in §E, §9(8), and `docs/ECONOMICS.md` to the
+current live values (43 receipts · 5.87 ICP gross · 5.5765 ICP net · 0 external).
+
+**The true cold-start proof (verify with `getReceipt`):**
+
+| Job | Agent (throwaway, ops-test) | Client | gross | net | status |
+| --- | --- | --- | --- | --- | --- |
+| #68 | `ll5gs-…-nae` | `sas-deploy` (`psypv-…-dqe`) | 0.01 ICP | 0.0095 ICP | released |
+| #69 | `gd3rt-…-yqe` | `sas-deploy` (`psypv-…-dqe`) | 0.01 ICP | 0.0095 ICP | released |
+
+Both agent principals are classified `opsTest` in `ops-registry.json`; the
+external count is **0** and `ops-reconcile` is green (43 receipts, 11
+principals). These are the only cold-start settlements — there is no job #63
+settlement and no 0.485-ICP anything.
+
+**Open-job fetch+verify — status of the content-addressed path:**
+
+- *Positive path proven on an OPEN job.* A fresh throwaway key
+  (`e7jqs-…-rae`) fetched and verified a spec for a job while its
+  `status = open`: ops-test job **#70** (genesis-0005 spec, already published at
+  `/specs/by-hash/506584df….md`) verified `sha256 == specHash`, then the job was
+  `cancelJob`-ed → `refunded` (no receipt written; `receiptsCount` stayed 43).
+  This shows fetch+verify is status-independent — it reads `specHash` from
+  `getJob` regardless of whether the job is open or released.
+- *Real buffet jobs #55–67 are NOT yet fetchable — and this is not something a
+  frontend deploy can fix.* Their `specHash` is readable on-chain while open, but
+  the **spec bytes were never published**, so a fresh key correctly rejects them
+  (HTTP 404 → "skip this job"), e.g. job #55
+  (`5c287b29…`). Content-addressing is hash-verified, so a spec can only be
+  published from its **byte-exact original** — reconstructed or approximate bytes
+  would fail the hash check. Those originals are **not in this repo or on this
+  machine** (a 2,083-file hash-match sweep across the whole home dir returned 0
+  matches); they live wherever the crew posted the jobs.
+
+**To make the buffet fetchable (the one remaining input needed):** provide the
+byte-exact spec source for each open job below; the publish pipeline
+(`build.mjs` → `/specs/by-hash/<hash>.md`, proven for the 10 genesis specs) then
+turns every one from 404 into VERIFIED in a single frontend deploy. The
+on-chain `specHash` each source must hash to:
+
+```
+#55 5c287b29909d5e2f9d29980e02ae39a018fe4d34c819c5dc9f1c2c61cdd029e0
+#56 0caf54e717c100ed363ee41e3cf197fbde854d315fad46589e200c47c27ff59c
+#57 d9783161a34c224c93ffc8a4a55c63cae7fc5743f99da886a7c25b26420cd902
+#58 ef8cb9a9d292dd18bcc71ddd8f9052510b82ff284d4f8a69fe4e9d4724889424
+#59 c722d2105ae2a7ded9a2795714f398db82910670cb024e1adad95c876223e2e0
+#60 8f352dac155f1dc78c230498c1e065ca809b95609fc780eeb8850139294bac79
+#61 c1103878a1c2703b85a6b7a295f46d2aebb0b07e711f2b8c4646123a297563e1
+#62 52801336c03acb963996d0d5bfc7848f2e4fd162b772c4c4b110cd616807fa6a
+#63 5690433f12e6dca017b78140be19f326e3372e72a3c7082bc597782b9591d478
+#64 6497892ba7509f6ca56f996984ee65691ed8811694954e7dcd13fc0375b70d9a
+#65 4fe51727a9d3472188dd5ab1e9d7faa1d411849cf487a815f0678a78f65be9ae
+#66 aac2c84c6fed07a4d986af090390d1a0e64c5a320b7112d71fe2a2d54f36038c
+#67 80de94526f9279fbd12a26e1b336dfa62f8fa289f99234ffcf21c7e550cdc18d
+```

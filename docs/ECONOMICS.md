@@ -81,7 +81,8 @@ All four canisters hold ≥24-month runways after the 2026-08-08 top-ups.
 **Self-funding baseline (the number Genesis exists to move):** at the 2%-of-
 gross treasury take, the fleet self-funds at **≈ 6.4 ICP of gross settlements
 per day**. Below that, runway is carried by the ops wallet; at and above it,
-the DAO treasury sustains the infrastructure from fees alone. Genesis
-progress: 1.65 ICP settled cumulatively (10 receipts) as of the snapshot.
-Refresh both numbers with each runway snapshot (recurring job format,
-genesis/job-0007/0008).
+the DAO treasury sustains the infrastructure from fees alone. Progress
+(live, `getTrustInfo`, re-verified 2026-08-13): **5.87 ICP gross settled
+cumulatively across 43 receipts** (all ops-test — zero external). Read this
+live rather than trusting the figure here; refresh with each runway snapshot
+(recurring job format, genesis/job-0007/0008).
