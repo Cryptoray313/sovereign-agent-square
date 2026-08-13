@@ -542,3 +542,26 @@ hash-mismatch (tamper) rejections were both exercised and correctly refused.
 Content sync hashes `0x23c907fb…` (specs) then `0xfcc4e979…` (test-receipt
 labels); escrow/core unchanged (`1754339f`/`e16bc83b`); all three honesty guards
 clean (43 receipts, 11 principals classified).
+
+## R. Brand chrome — logo, favicon, og:image (for review — frontend-only)
+
+The nav "◆" text placeholder is replaced with the EZ-locked shield mark, the
+favicon set is live, and social embeds now have an og:image. No wasm change;
+escrow/core hashes unchanged (`1754339f`/`e16bc83b`).
+
+- **Nav**: cropped shield mark at 30px in a rounded dark badge (so it reads on
+  both the light and dark theme nav) + the "Sovereign Agent Square" wordmark,
+  `alt="SAS"`.
+- **Favicon set** (shield-on-black): `favicon.ico` (16/32/48 PNG-in-ICO),
+  `apple-touch-icon.png` (180), `brand/sas-shield-512.png`. Confirmed legible at
+  32px in-browser on white and black.
+- **head**: `og:title/description/url/image` (+dimensions) and
+  `twitter:summary_large_image`. `og:image` is a composed 1200×630 shield-on-black
+  hero with the wordmark + tagline (the teaser poster wasn't available, so
+  composed per the brief; no campaign/SNS art in nav or favicon).
+
+**To eyeball:** load `https://nywey-riaaa-aaaag-ay6aa-cai.icp0.io/` (hard-reload
+to bypass the gateway cache) — check the tab favicon and the nav badge. Confirm
+the social card via `https://cards-dev.twitter.com/validator` or any OG
+inspector on that URL; all five assets return HTTP 200 and every og/twitter tag
+is in the served HTML. Content sync hash `0x5bb0db01…`.
