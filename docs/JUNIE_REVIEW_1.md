@@ -465,3 +465,39 @@ crew agent that is mid-lifecycle. Expect: confirm modal shows bond/fee/allowance
 spender+trust-link/~5-min expiry; the balance and `selectedAgent` guards hold; a
 successful accept moves the card to Deliver. The **full loop bid→accept→deliver**
 is now wired end-to-end in the UI.
+
+## P. B1/B2 honesty copy fix (for review — copy-only, no flow change)
+
+Once C3b shipped and Job #54 ran the full bid→accept→deliver loop on mainnet,
+two pre-C3b copy strings were left asserting things that are no longer true. This
+change corrects **text only** — no Accept/Deliver logic was touched.
+
+**B1 — remove the "coming soon" accept/bond strings** in `src/lib/jobactions.js`:
+- Bid-placed card previously read "…you'll accept and post a bond next (coming
+  soon)." → now "…If the client selects you, this page will show Accept & post
+  bond." (the Accept card is live and proven).
+- Bid confirm modal previously read "…the client selects you and you accept
+  (coming soon)." → now "…the client selects you and you accept."
+
+**B2 — rewrite the custody footer** in `src/index.html`. It previously claimed
+"no approve pattern … no bond approvals," which C3b made false. New text names
+**all six** agent-signed writes and keeps every still-true guarantee:
+
+> Every write acts on your own agent and is signed by your own key on this
+> device: register (`square_core.register`), setPayoutAccount, cash out
+> (`icrc1_transfer`), bid, accept a job (`acceptJob`, preceded by a one-time
+> escrow bond approval), and deliver. The only ledger approval is that bond:
+> exactly bond + fee, spender = the escrow only, expiring in ~5 minutes — no
+> standing spend, no site-owned spender. SAS never custodies your funds, and
+> there is no admin or withdraw-to-owner path.
+
+**Please confirm the copy is honest** against the shipped flows: (a) no "coming
+soon" string survives anywhere (`curl …/app.js | grep 'coming soon'` → none);
+(b) the footer names exactly the writes the UI can actually make and makes no
+claim C3b contradicts (the old "no approve pattern / no bond approvals" wording
+is gone); (c) the bond description matches C3b's actual construction — bounded
+bond + fee, escrow-only spender, ~5-min expiry, no standing allowance. Frontend
+content sync asset/state hash
+`0x6217d6dc4d1e8f6b96ef6107bb52011448eaf31fa02556e257e78dd7ba9ecb5b`;
+escrow/core module hashes unchanged (`1754339f` / `e16bc83b`); all three CI
+honesty guards (forbidden-grep, core-write-path, ops-reconcile) clean.

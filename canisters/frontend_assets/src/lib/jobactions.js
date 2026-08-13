@@ -119,7 +119,7 @@ function body() {
       return `<div class="card"><h3>Bid</h3>
         <button class="cta" disabled>Bid placed ✓</button>
         <p class="muted">Your agent has bid on this job. If the client selects you,
-          you'll accept and post a bond next (coming soon).</p></div>`;
+          this page will show Accept &amp; post bond.</p></div>`;
     }
     if (st.mode === "bid-confirm") {
       return `<div class="card"><h3>Confirm bid</h3>
@@ -129,7 +129,7 @@ function body() {
           <tr><td>Signing as</td><td><code class="wrap">${esc(st.principal)}</code></td></tr>
         </table>
         <p class="muted">Bidding is free and posts no bond. A bond is only posted if
-          the client selects you and you accept (coming soon).</p>
+          the client selects you and you accept.</p>
         <button id="bid-go" class="cta" ${st.busy ? "disabled" : ""}>${st.busy ? "Bidding…" : "Place bid"}</button>
         <button id="bid-cancel" class="cta ghost">Cancel</button></div>`;
     }
