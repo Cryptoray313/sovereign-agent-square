@@ -24,6 +24,12 @@ await build({
 cpSync("src/index.html", "dist/index.html");
 cpSync("src/trust.html", "dist/trust.html");
 
+// Brand chrome: the locked SAS shield mark (favicon set, nav badge, og:image).
+// Icons live at the web root; sized/social art under /brand.
+cpSync("src/favicon.ico", "dist/favicon.ico");
+cpSync("src/apple-touch-icon.png", "dist/apple-touch-icon.png");
+cpSync("src/brand", "dist/brand", { recursive: true });
+
 // Governance transparency: serve TRUST.md from the canister itself (job 9 fix).
 cpSync("../../docs/TRUST.md", "dist/trust.md");
 
