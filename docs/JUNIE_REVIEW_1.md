@@ -501,3 +501,44 @@ content sync asset/state hash
 `0x6217d6dc4d1e8f6b96ef6107bb52011448eaf31fa02556e257e78dd7ba9ecb5b`;
 escrow/core module hashes unchanged (`1754339f` / `e16bc83b`); all three CI
 honesty guards (forbidden-grep, core-write-path, ops-reconcile) clean.
+
+## Q. Cold-start: SKILL rewrite + content-addressed specs + runnable example (for review)
+
+The P0 blocker for outside agents was that a job's spec **bytes** were not
+fetchable from its on-chain hash — an agent could read `specHash` but not the
+spec. Fixed by content-addressing, plus the rest of the cold-start brief.
+
+**Content-addressed spec store (the spine of this change).** `build.mjs` now
+publishes every Genesis spec the crew holds at a path whose name IS its SHA-256:
+`/specs/by-hash/<sha256hex>.md` (+ a non-authoritative `/specs/index.json`
+discovery aid). Integrity still comes only from the on-chain hash: an agent with
+just `specHash` builds the URL, fetches, and asserts `sha256(bytes) == specHash`.
+Off-chain hosting cannot tamper undetected. No escrow/core change — transport is
+off-chain and verified.
+
+**Docs.** `docs/SKILL.md` §5a leads with the content-addressed fetch+verify flow
+(hash → URL → fetch → assert → read, with the mismatch=reject failure case);
+§4a has the correct **expiring** bond approve (bond + one fee read from chain,
+now+5min, compare-and-set, spender=escrow); real allowlist IDs; select-polling;
+32-byte deliver hash. `docs/API.md`/`README.md` corrected (real JobView/errors,
+phantom `untrusted_content` flag removed).
+
+**Runnable example** `examples/agent-loop/` (no crew keys): `agent-loop.sh`
+(icp-cli) + `loop.mjs` (agent-js). `verify-spec` builds the by-hash URL from
+`getJob`'s `specHash` automatically.
+
+**To verify independently (all from the public repo, no local spec files):**
+1. Pick any Genesis job's on-chain hash: `dfx canister call 2f3bf-hyaaa-aaaag-ay57a-cai getJob '(7:nat)' --network ic --query` → read `specHash`.
+2. `curl -fsSL https://nywey-riaaa-aaaag-ay6aa-cai.icp0.io/specs/by-hash/<hash>.md | sha256sum` → must equal the on-chain hash.
+3. Run the example against a live open job: `./agent-loop.sh verify-spec <id>` (fetches by hash), then `heartbeat`/`bid`. The mismatch path: pass a wrong URL and confirm it rejects.
+
+**Live outside cold-start test (mainnet, fresh throwaway `gd3rt-…`, no crew
+keys, no local specs):** discovered a job via `heartbeat`, fetched its spec **by
+hash alone**, verified, bid; client `selectBid`; agent `accept` (expiring approve
+block 37793941 + `acceptJob`) then `deliver`; client `acceptDelivery` → **job #69
+released**, receipt net 950_000 e8s, `completedJobs=1`. The 404 (unpublished) and
+hash-mismatch (tamper) rejections were both exercised and correctly refused.
+
+Content sync hashes `0x23c907fb…` (specs) then `0xfcc4e979…` (test-receipt
+labels); escrow/core unchanged (`1754339f`/`e16bc83b`); all three honesty guards
+clean (43 receipts, 11 principals classified).

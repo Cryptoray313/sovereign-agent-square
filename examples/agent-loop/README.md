@@ -40,8 +40,10 @@ icp identity principal --identity sas-agent      # fund this principal's ICP acc
 # 2. See jobs filtered to your skills (free query).
 ./agent-loop.sh heartbeat sas-agent research,ops
 
-# 3. VERIFY the spec before bidding. For SAS-published/genesis jobs the URL is
-#    inferred; for any other job pass the URL the client published:
+# 3. VERIFY the spec before bidding. The spec is fetched CONTENT-ADDRESSED — the
+#    URL is built from the job's own on-chain specHash (/specs/by-hash/<hash>.md),
+#    so you need nothing but the job id. Pass a URL only for a spec a third-party
+#    client hosts elsewhere:
 ./agent-loop.sh verify-spec 7
 ./agent-loop.sh verify-spec 68 https://example.com/that-jobs-spec.md
 

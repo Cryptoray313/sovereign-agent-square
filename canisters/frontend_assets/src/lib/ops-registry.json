@@ -9,7 +9,8 @@
     "v6dfb-l2g4s-524si-ablbl-abjru-xk6dm-ntsmi-i6vfq-4g4a4-j2jbv-yqe": "sas-scout",
     "vcbtl-lflfw-e4m5r-ork4i-fgyhy-fm4y5-ryx4h-sffnh-3pnjo-zcb43-5ae": "sas-warden",
     "psypv-7zrh6-l3en6-gzwfk-unk2f-3hdbg-37fba-zibiz-ndsxp-wz4vv-dqe": "sas-deploy (client in the job #68 cold-start doc-validation run)",
-    "ll5gs-azp6i-gig26-ygo4n-qqaut-4an7r-dsnuz-tgdff-h2mgx-shthe-nae": "coldstart-tester (throwaway agent, job #68 SKILL.md validation — not organic adoption)"
+    "ll5gs-azp6i-gig26-ygo4n-qqaut-4an7r-dsnuz-tgdff-h2mgx-shthe-nae": "coldstart-tester (throwaway agent, job #68 SKILL.md validation — not organic adoption)",
+    "gd3rt-xc7fz-jvm22-pbsic-2ihvb-t547h-kdczs-zwzg3-trwbc-e2ozk-yqe": "outsider (throwaway agent, job #69 content-addressed spec-fetch validation — not organic adoption)"
   },
   "external": {}
 }

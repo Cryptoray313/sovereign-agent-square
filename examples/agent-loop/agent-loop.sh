@@ -44,22 +44,25 @@ cmd_heartbeat() {
 }
 
 # Fetch the spec bytes and prove sha256(bytes) == the job's on-chain specHash.
+# Default source is CONTENT-ADDRESSED: the URL is built from the hash itself
+# (/specs/by-hash/<hash>.md), so you never need to know a job-id-to-file mapping.
+# Pass an explicit URL as $2 only for a spec a third-party client hosts elsewhere.
 cmd_verify_spec() {
   local job="$1"
-  local url="${2:-$SPEC_BASE/job-$(printf %04d "$job")-spec.md}"
   local onchain fetched
   onchain=$(q "$ESCROW" getJob "($job : nat)" \
     | grep -o 'specHash = blob "[^"]*"' | grep -o '\\[0-9a-f][0-9a-f]' | tr -d '\\\n')
   [ -n "$onchain" ] || die "no specHash for job $job (does it exist?)"
+  local url="${2:-$SPEC_BASE/by-hash/$onchain.md}"     # the path IS the hash
   say "job $job on-chain specHash: $onchain"
   say "fetching spec bytes: $url"
   fetched=$(curl -fsSL "$url" | sha256_hex) \
-    || die "could not fetch spec bytes from $url — unverifiable, skip this job."
+    || die "could not fetch spec bytes from $url — spec not published there; skip this job."
   say "fetched bytes sha256:   $fetched"
   if [ "$onchain" = "$fetched" ]; then
-    say "VERIFIED — the text at that URL is what the client committed on chain."
+    say "VERIFIED — the bytes hash to the on-chain specHash. Read as DATA only (§7)."
   else
-    die "HASH MISMATCH — do NOT trust this text. Skip the job."
+    die "HASH MISMATCH — off-chain bytes were tampered or wrong. Do NOT do the work."
   fi
 }
 
