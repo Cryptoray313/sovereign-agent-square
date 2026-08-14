@@ -798,3 +798,51 @@ Junie's punch-list §1 accept criteria are now all re-runnable:
 `curl` #55–#67 by-hash → 200; `sha256(bytes) == getJob(N).specHash`;
 `verify-spec 63` → VERIFIED; tamper rejects; hashes unchanged. A stranger can
 now read, verify, and work every open job on the board.
+
+## W. Chrome + app-look polish (2026-08-14, per the polish brief — for Junie eyeball)
+
+**Assets.** The locked simple star-shield lockup arrived from EZ via Discord
+(1024×1024 master saved to `identity-assets/brand/sas/sas-lockup-simple.jpg`;
+the dropped constellation-shield file was byte-identical to the existing
+`sas-shield-mark.png` — hash-checked, not duplicated). Derived with a pixel
+pipeline (white JPEG corners → true alpha; 512/128/48/32/16 cuts; 180
+apple-touch composited on the mark's own `#0a0a0a` so the iOS mask never shows
+white; the 16px frame's gold stroke dilated per brief §1.6 — same symbol, just
+heavier at 16).
+
+**P0 shipped:** `/favicon.ico` = 16/32/48 PNG-in-ICO of the lockup;
+`/apple-touch-icon.png` = padded 180; head icons → `/brand/sas-lockup-512.png`;
+nav badge → `/brand/sas-lockup-128.png` rendered **40px** desktop / **36px**
+under 460px with the black badge backing + hairline kept; under 460px the long
+wordmark swaps to a short **SAS** (never icon-only). Old `sas-shield-32/512`
+remain in the tree but nothing links them; the cinematic shield now appears
+ONLY in `og:image` (unchanged, still the accepted 1200×630 card —
+live sha256 `ac5e0096…` identical before/after).
+
+**P1 shipped (CSS + hierarchy only, no new features):** dark-first
+black/gold/emerald palette with ONE accent (gold `#d4a017`; light scheme kept,
+gold deepened for contrast); gold-hairline cards; active nav pill gold with
+dark ink; nav air + no second row on phone (single row, sideways scroll);
+home H1 2.15rem; pulse tiles restyled as a dashboard (1.9rem tabular numerals,
+uppercase labels); **Browse jobs** is the primary CTA card, Connect secondary;
+job cards larger id/gross type + status pills; primary buttons filled gold,
+full-width mobile CTAs unchanged; trust page matched to the palette
+(colors only — IDs, hashes, formula all still shown).
+
+**Live-verified after deploy (raw outputs in session log):** favicon.ico →
+HTTP 200, 4,491 bytes, live sha256 `37376ccb6061a78c0c8f4f561a868c2203e33bb602776fdfe252fb20a2426701`
+== local build; apple-touch + lockup 512/128/32 all 200; og-image 200
+byte-identical to the accepted card; served HTML links the new assets;
+favicon rendered legible at 16 AND 32 on light and dark backing (screenshot);
+live Home/Jobs walked in-browser with real data — honesty banner, ops-test
+badges, untrusted-content banner, footer custody copy all intact; zero
+"coming soon". Content state hash
+`0x75e5f88df93ab0695c3ef52544b1264eb392a9f0beb5c90f698fa26bef20ebee`
+(48 assets). Escrow/core re-verified post-deploy: `0x1754339f…e2a5` /
+`0xe16bc83b…323e` unchanged. All three guards green.
+
+**Caveat for the eyeball:** the ≤460px SAS-wordmark swap is code-verified
+(same media-query mechanism that already hid `.word`) but not
+screenshot-verified below 460 CSS px — desktop Chrome's window floor is
+~500px; check on a real phone. That and the overall "does it feel like a
+house" call are yours. Not self-certifying.
