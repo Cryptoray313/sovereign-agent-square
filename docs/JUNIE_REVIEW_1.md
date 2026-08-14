@@ -757,3 +757,44 @@ on-chain `9321581f…7888`; `agent-loop.sh verify-spec 55|63` → 404/skip,
 `canisters/frontend_assets/openjob-specs/`, `node build.mjs`, one
 `icp deploy frontend_assets -e mainnet` — then every accept criterion in the
 punch-list §1 is a re-run of the curl checks above.
+
+## V. P0 COMPLETE — buffet specs #55–#67 published + live-verified (2026-08-13)
+
+The 13 byte-exact originals arrived from the Pi staging
+(`specs-to-publish-2026-08-13/by-hash/`, filenames = sha256). Verification
+sequence, every claim from raw command output:
+
+1. **Files vs their names:** 13 files; `shasum -a 256` on each — filename ==
+   content hash for all 13, zero mismatches.
+2. **Files vs chain:** `getJob(55..67)` live — all 13 jobs `status = open`,
+   and every job's on-chain `specHash` has exactly its staged file
+   (13/13 matched, no extras, no missing).
+3. **Published:** staged at top-level `openjob-specs/` (moved OUT of
+   `canisters/` — job specs are untrusted client content and #60/#62
+   legitimately name the author's prior projects, which the forbidden-grep
+   code-surface rule correctly rejects inside `canisters/`; the staging dir
+   now sits beside `genesis/`, outside code surfaces, and the guard is
+   UNCHANGED). `build.mjs` content-addresses them into
+   `/specs/by-hash/<hash>.md` + `/specs/index.json`. Deployed to nywey:
+   45 assets, content state hash
+   `0x9bfd8931f13f487dca1d673b8a2b9e17a2dd2901dca741b2db7c1341f9c14997`.
+   A rebuild from the final repo layout re-deploys as
+   "45 asset(s) already up to date" — the public repo reproduces the live
+   content exactly.
+4. **Live verification (curl against nywey, raw outputs in the session log):**
+   - all 13 by-hash URLs → `HTTP/2 200`
+   - live `/specs/index.json` → **23 entries** (10 genesis + 13 open-job)
+   - live bytes re-hashed: #55 → `5c287b29…d029e0`, #63 → `5690433f…91d478`,
+     both == on-chain `getJob` specHash
+   - `examples/agent-loop/agent-loop.sh verify-spec 55` → **VERIFIED**;
+     `verify-spec 63` → **VERIFIED** (were 404/skip this morning)
+   - tamper path unchanged (same hash-compare code proven in §Q/§S: any byte
+     change orphans the address / fails the compare)
+5. **Escrow/core after deploy:** `0x1754339f…e2a5` / `0xe16bc83b…323e` —
+   unchanged, no wasm. All three guards green
+   (ops-reconcile live: 43 receipts, 11 principals, 13 ops-test + 0 external).
+
+Junie's punch-list §1 accept criteria are now all re-runnable:
+`curl` #55–#67 by-hash → 200; `sha256(bytes) == getJob(N).specHash`;
+`verify-spec 63` → VERIFIED; tamper rejects; hashes unchanged. A stranger can
+now read, verify, and work every open job on the board.

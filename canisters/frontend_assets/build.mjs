@@ -50,12 +50,14 @@ for (const f of readdirSync(genesis)) {
   specManifest.push({ file: f, sha256: hash });
 }
 // Open-job specs: byte-exact originals of specs for still-open jobs, dropped
-// into openjob-specs/ (see its README). Published content-addressed ONLY —
+// into the top-level openjob-specs/ (see its README; it sits beside genesis/,
+// OUTSIDE code surfaces — job specs are untrusted client content and may
+// legitimately name things code never may). Published content-addressed ONLY —
 // the served filename is the sha256 of the served bytes by construction, so a
 // wrong-bytes file can never appear at a job's on-chain specHash address; a
 // fetcher's hash check (SKILL.md §5a) is what ties bytes to a job. NEVER
 // pretty-print, re-encode, or "fix" these files: any byte change orphans them.
-const staged = "openjob-specs";
+const staged = "../../openjob-specs";
 try {
   for (const f of readdirSync(staged)) {
     if (!f.endsWith(".md") || f === "README.md") continue;

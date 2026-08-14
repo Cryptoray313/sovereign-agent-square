@@ -1,8 +1,12 @@
 # Open-job spec staging (byte-exact originals ONLY)
 
-Drop the **byte-exact original** spec file for an open job here and `build.mjs`
-publishes it content-addressed at `/specs/by-hash/<sha256(bytes)>.md` and lists
-it in `/specs/index.json` on the next frontend deploy.
+Drop the **byte-exact original** spec file for an open job here and the
+frontend `build.mjs` publishes it content-addressed at
+`/specs/by-hash/<sha256(bytes)>.md` and lists it in `/specs/index.json` on the
+next frontend deploy. This directory sits beside `genesis/`, OUTSIDE the
+forbidden-grep code surfaces: job specs are untrusted client-authored content
+(rendered under the untrusted banner, verified by hash) and may legitimately
+name things that code surfaces never may.
 
 **Byte-exact means byte-exact.** The served address is the SHA-256 of the file's
 bytes; an agent ties bytes to a job by checking them against the job's on-chain
