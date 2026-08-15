@@ -7,7 +7,7 @@ import {
 } from "./identity.js";
 import { legacyAccountIdHex } from "./account.js";
 import { qrSvg } from "./qr.js";
-import { ledgerBalanceE8s, registerAgent } from "./data.js";
+import { ledgerBalanceE8s, registerAgent, invalidateMarket } from "./data.js";
 import { esc, icp } from "./ui.js";
 
 const FUND_TARGET_E8S = 5_000_000n; // 0.05 ICP
@@ -302,6 +302,7 @@ function wire() {
       try {
         const res = await registerAgent(state.identity, state.handle, state.bio);
         if (res.ok || res.error === "alreadyRegistered") {
+          invalidateMarket();
           setMeta({ registered: true, handle: state.handle });
           state.busy = false; state.step = "done"; render();
         } else {

@@ -14,7 +14,7 @@ import {
   loading, errorBox, NET_FORMULA,
 } from "./lib/ui.js";
 import { opsBadgeHtml, opsLabel, externalLabel } from "./lib/ops.js";
-import { startRain, countUp } from "./lib/square.js";
+import { startRain, countUp, reducedMotion } from "./lib/square.js";
 
 // Compact three-state badge for tight storefront rows: same classification as
 // opsBadgeHtml (ops-test / external / unlabeled), full registry label in the
@@ -47,6 +47,10 @@ const routes = [
 ];
 
 async function router() {
+  // Route change: kill the board poll before rendering the next view. Only
+  // renderHome / renderJobs re-arm it.
+  stopBoardPoll();
+  boardPollTick = null;
   const { path } = parseRoute();
   setActiveNav(path);
   const container = app();
@@ -72,12 +76,17 @@ function setActiveNav(path) {
 }
 
 // ---------- home: the town square (packet-4 skyline, live data only) ----------
-async function renderHome() {
-  const p = await loadPulse();
-  // Honesty banner derived from live per-receipt verification (never assumed).
+// Newest-first ordering for open jobs (BigInt-safe; tiebreak id desc).
+const byNewest = (a, b) =>
+  a.createdAtNs === b.createdAtNs ? b.id - a.id : (a.createdAtNs > b.createdAtNs ? -1 : 1);
+
+// Honesty banner derived from live per-receipt verification (never assumed).
+// Shared by the initial render and the 30s poll, so a poll that surfaces an
+// unlabeled principal flips the banner to its warning branch automatically.
+function opsNoteHtml(p) {
   const N = p.receiptsLoaded;
   const extPill = `<span class="extcount">external count: ${p.externalReceipts}</span>`;
-  const opsNote = p.unlabelledReceipts === 0
+  return p.unlabelledReceipts === 0
     ? `<div class="opsbanner">
         ${extPill}
         <strong>Everything you see here is ops-test.</strong> All
@@ -95,17 +104,11 @@ async function renderHome() {
         <span class="badge ext">unlabeled</span> on the
         <a href="#/receipts">receipts</a> page. This has not been reconciled; treat with care.
       </div>`;
+}
 
-  // The four signs — locked names, existing routes only.
-  const skyline = `<div class="skyline">
-    <a class="bb bb1" href="#/jobs"><span class="n">01</span><span class="v">Read spec</span><span class="r">/jobs</span></a>
-    <a class="bb bb2" href="./trust.html"><span class="n">02</span><span class="v">Verify</span><span class="r">/trust</span></a>
-    <a class="bb bb3" href="#/connect"><span class="n">03</span><span class="v">Bid</span><span class="r">/connect</span></a>
-    <a class="bb bb4" href="#/receipts"><span class="n">04</span><span class="v">Get paid</span><span class="r">/receipts</span></a>
-  </div>`;
-
-  // Storefronts: LIVE open jobs (same data + claims as the board), plus browse-all.
-  const open = p.market.jobs.filter((j) => j.status === "open");
+// Storefront grid inner HTML for the newest 5 open jobs + the browse-all tile.
+async function storesHtml(market) {
+  const open = market.jobs.filter((j) => j.status === "open").sort(byNewest);
   const front = open.slice(0, 5);
   const splits = await Promise.all(front.map((j) => previewSplit(j.grossE8s)));
   const stores = front.map((j, i) => {
@@ -121,6 +124,53 @@ async function renderHome() {
   const browseAll = `<a class="store browseall" href="#/jobs">
     <div><b style="color:var(--accent)">Browse all jobs →</b>
     <div class="muted" style="margin-top:0.2rem">open board, live from escrow</div></div></a>`;
+  return { html: stores + browseAll, frontKey: front.map((j) => j.id).join(",") };
+}
+
+// ----- 30s board poll (home + jobs board only; mirrors connect.js) -----
+let boardPollTimer = null;
+let boardPollBusy = false;
+function stopBoardPoll() {
+  if (boardPollTimer) { clearInterval(boardPollTimer); boardPollTimer = null; }
+  boardPollBusy = false;
+}
+function startBoardPoll(tick) {
+  stopBoardPoll();
+  boardPollTimer = setInterval(async () => {
+    if (boardPollBusy || document.hidden) return; // in-flight guard; skip when hidden
+    boardPollBusy = true;
+    try { await tick(); } catch { /* transient: keep last good render, keep polling */ }
+    finally { boardPollBusy = false; }
+  }, 30_000);
+}
+// Coming back to a hidden tab: refresh once immediately.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && boardPollTimer) {
+    const t = boardPollTimer; // still armed → fire an off-schedule tick
+    setTimeout(async () => {
+      if (boardPollTimer !== t || boardPollBusy || document.hidden) return;
+      boardPollBusy = true;
+      try { await boardPollTick?.(); } catch { /* keep last good render */ }
+      finally { boardPollBusy = false; }
+    }, 0);
+  }
+});
+let boardPollTick = null;
+
+async function renderHome() {
+  const p = await loadPulse();
+  const opsNote = `<div id="opsnote">${opsNoteHtml(p)}</div>`;
+
+  // The four signs — locked names, existing routes only.
+  const skyline = `<div class="skyline">
+    <a class="bb bb1" href="#/jobs"><span class="n">01</span><span class="v">Read spec</span><span class="r">/jobs</span></a>
+    <a class="bb bb2" href="./trust.html"><span class="n">02</span><span class="v">Verify</span><span class="r">/trust</span></a>
+    <a class="bb bb3" href="#/connect"><span class="n">03</span><span class="v">Bid</span><span class="r">/connect</span></a>
+    <a class="bb bb4" href="#/receipts"><span class="n">04</span><span class="v">Get paid</span><span class="r">/receipts</span></a>
+  </div>`;
+
+  // Storefronts: LIVE open jobs, newest first (same data + claims as the board).
+  let storesState = await storesHtml(p.market);
 
   app().innerHTML = `
     <section class="hero">
@@ -146,7 +196,7 @@ async function renderHome() {
     </section>
     ${opsNote}
     <h2 class="sec">Open <b>storefronts</b> <span class="muted" style="text-transform:none;letter-spacing:0">· live from escrow</span></h2>
-    <div class="stores">${stores}${browseAll}</div>
+    <div class="stores" id="stores">${storesState.html}</div>
     <p class="formula muted"><code>${esc(NET_FORMULA)}</code></p>`;
 
   // Motion: rain behind the hero only; rail numbers count up to the LIVE
@@ -155,24 +205,86 @@ async function renderHome() {
   countUp(document.getElementById("rail-open"), p.openCount);
   countUp(document.getElementById("rail-escrowed"), Number(p.escrowedE8s) / 1e8, { decimals: 2 });
   countUp(document.getElementById("rail-receipts"), p.receiptsCount);
+
+  // 30s poll: cache-bypassing refresh, applied IN PLACE (rail values, banner,
+  // storefronts) — never re-render #app, so rain/neon keep running and scroll
+  // stays put. Rail numbers are set directly (no re-run of the intro count-up).
+  boardPollTick = async () => {
+    const q = await loadPulse(true);
+    const setNum = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+    setNum("rail-open", String(q.openCount));
+    setNum("rail-escrowed", (Number(q.escrowedE8s) / 1e8).toFixed(2));
+    setNum("rail-receipts", String(q.receiptsCount));
+    const note = document.getElementById("opsnote");
+    if (note) note.innerHTML = opsNoteHtml(q);
+    const next = await storesHtml(q.market);
+    const grid = document.getElementById("stores");
+    if (grid && next.html !== storesState.html) {
+      const changed = next.frontKey !== storesState.frontKey;
+      grid.innerHTML = next.html;
+      storesState = next;
+      if (changed && !reducedMotion()) {
+        grid.classList.add("refreshed");
+        setTimeout(() => grid.classList.remove("refreshed"), 700);
+      }
+    }
+  };
+  startBoardPoll(boardPollTick);
 }
 
 // ---------- jobs board ----------
 async function renderJobs() {
   const market = await loadMarket();
-  const open = market.jobs.filter((j) => j.status === "open");
+  const state = await jobsRowsHtml(market); // newest-first rows
+  app().innerHTML = `<div id="board">${jobsBoardHtml(market, state)}</div>`;
+  wireJobsFilter();
 
-  if (!open.length) {
-    app().innerHTML = `
+  // 30s poll: cache-bypassing refresh applied to the board node only. The
+  // filter input (and its text) survives ticks; empty↔non-empty transitions
+  // rebuild the board container once.
+  boardPollTick = async () => {
+    const m = await loadMarket(true);
+    const board = document.getElementById("board");
+    if (!board) return;
+    const next = await jobsRowsHtml(m);
+    const list = document.getElementById("joblist");
+    if (!list || !next.count) {
+      const keep = document.getElementById("skillfilter")?.value ?? "";
+      board.innerHTML = jobsBoardHtml(m, next);
+      wireJobsFilter(keep);
+      return;
+    }
+    const countEl = document.getElementById("jobcount");
+    if (countEl) countEl.textContent = `(${next.count} open)`;
+    if (list.innerHTML !== next.rows) list.innerHTML = next.rows;
+    applyJobsFilter();
+  };
+  startBoardPoll(boardPollTick);
+}
+
+// Board shell: heading + filter + rows, or the honest empty state.
+function jobsBoardHtml(market, rowsState) {
+  if (!rowsState.count) {
+    return `
       <h2>Job board</h2>
       <div class="opsbanner">The board shows <strong>open</strong> jobs awaiting an agent.
         There are none right now. All ${market.receipts.length} jobs to date have already
         settled — see <a href="#/receipts">receipts</a>. (Everything to date is
         <span class="badge ops">ops-test</span>.)</div>`;
-    return;
   }
+  return `
+    <h2>Job board <span class="muted" id="jobcount">(${rowsState.count} open)</span></h2>
+    <input id="skillfilter" class="filter" type="text" placeholder="Filter by skill…" autocomplete="off" />
+    <p class="formula"><code>${esc(NET_FORMULA)}</code></p>
+    <div id="joblist">${rowsState.rows}</div>`;
+}
 
-  // Estimated agent net per open job (previewSplit is authoritative on the split).
+// Rows for the poll tick: rebuilt from a fresh market, newest first.
+async function jobsRowsHtml(market) {
+  const open = market.jobs.filter((j) => j.status === "open").sort(byNewest);
   const splits = await Promise.all(open.map((j) => previewSplit(j.grossE8s)));
   const rows = open.map((j, i) => {
     const s = splits[i];
@@ -193,20 +305,24 @@ async function renderJobs() {
       <a class="more" href="#/jobs/${j.id}">View job →</a>
     </div>`;
   }).join("");
+  return { rows, count: open.length };
+}
 
-  app().innerHTML = `
-    <h2>Job board <span class="muted">(${open.length} open)</span></h2>
-    <input id="skillfilter" class="filter" type="text" placeholder="Filter by skill…" autocomplete="off" />
-    <p class="formula"><code>${esc(NET_FORMULA)}</code></p>
-    <div id="joblist">${rows}</div>`;
-
+function applyJobsFilter() {
   const f = document.getElementById("skillfilter");
-  f.addEventListener("input", () => {
-    const q = f.value.trim().toLowerCase();
-    document.querySelectorAll("#joblist .job").forEach((el) => {
-      el.style.display = !q || el.dataset.skills.includes(q) ? "" : "none";
-    });
+  if (!f) return;
+  const q = f.value.trim().toLowerCase();
+  document.querySelectorAll("#joblist .job").forEach((el) => {
+    el.style.display = !q || el.dataset.skills.includes(q) ? "" : "none";
   });
+}
+
+function wireJobsFilter(initial = "") {
+  const f = document.getElementById("skillfilter");
+  if (!f) return;
+  if (initial) f.value = initial;
+  f.addEventListener("input", applyJobsFilter);
+  applyJobsFilter();
 }
 
 // ---------- job detail ----------

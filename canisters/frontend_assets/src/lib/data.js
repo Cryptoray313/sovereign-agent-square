@@ -51,10 +51,18 @@ function normReceipt(r) {
 }
 
 let _market = null;
+let _marketAt = 0;
+const MARKET_TTL_MS = 30_000;
 
-// Enumerate all jobs (contiguous from 0) + their receipts. Cached.
+// Drop the cached market so the next read refetches — called from the user's
+// own write success paths (bid / acceptJob / deliver / register) so their
+// action shows immediately instead of waiting out the TTL.
+export function invalidateMarket() { _market = null; _marketAt = 0; }
+
+// Enumerate all jobs (contiguous from 0) + their receipts. Cached with a 30s
+// TTL; force=true bypasses the cache (the board poll uses this every tick).
 export async function loadMarket(force = false) {
-  if (_market && !force) return _market;
+  if (_market && !force && Date.now() - _marketAt < MARKET_TTL_MS) return _market;
   const { escrow } = await getActors();
   const jobs = [];
   for (let base = 0; base < MAX_JOBS; base += CHUNK) {
@@ -74,6 +82,7 @@ export async function loadMarket(force = false) {
   for (const r of rlist) { const o = optVal(r); if (o) receipts.push(normReceipt(o)); }
   receipts.sort((a, b) => b.jobId - a.jobId);
   _market = { jobs, receipts };
+  _marketAt = Date.now();
   return _market;
 }
 
@@ -95,8 +104,8 @@ export async function previewSplit(grossE8s) {
 }
 
 // Home pulse: open jobs, receiptsCount, 24h settled, last-receipt age.
-export async function loadPulse() {
-  const [t, market] = await Promise.all([getTrustInfo(), loadMarket()]);
+export async function loadPulse(force = false) {
+  const [t, market] = await Promise.all([getTrustInfo(), loadMarket(force)]);
   const openJobs = market.jobs.filter((j) => j.status === "open");
   // ICP currently held in escrow. The escrow candid exposes no single
   // "total in escrow" field (getTrustInfo/getEscrowInfo carry settled totals

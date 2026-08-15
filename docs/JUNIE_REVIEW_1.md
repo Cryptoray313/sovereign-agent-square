@@ -898,3 +898,44 @@ registry badge and broke the card grid — replaced with the compact badge
 **Screenshots (of the DEPLOYED site):** desktop hero + rail + banner, desktop
 storefronts, phone 390px stacked billboards — attached to the EZ report.
 Stopping here for the overseer's independent re-check; not self-certified.
+
+## Y. Live board refresh (2026-08-15 — newest-first + market TTL + 30s poll)
+
+Frontend-only (`data.js`, `app.js`, `jobactions.js`, `connect.js`,
+`index.html` one CSS rule). Skyline, rail, honesty banner, six writes, and
+NET_FORMULA untouched.
+
+1. **Newest-first:** `byNewest` (BigInt-safe `createdAtNs` compare, id-desc
+   tiebreak) applied before the slice on home storefronts AND the /jobs board.
+   Live-verified: both now lead #67 → #66 → … (was #55-ascending).
+2. **Market cache dies:** 30s TTL (`_marketAt` stamp) + `force` threaded
+   through `loadPulse(true)` → `loadMarket(true)`; new `invalidateMarket()`
+   called in the four write success paths (bid / acceptJob / deliver /
+   register) so the user's own action shows immediately. (`me.js` has no
+   market-affecting writes — setPayoutAccount/icrc1_transfer touch routing and
+   the ledger, not jobs — so nothing to hook there.)
+3. **30s poll, home + board only** (mirrors connect.js setInterval/stop
+   pattern): armed on renderHome/renderJobs, killed by the router before every
+   route render; in-flight guard skips overlapping ticks; `document.hidden`
+   skips the fetch with a visibilitychange catch-up tick; transient errors
+   keep the last good render and keep polling. Updates are IN PLACE — rail
+   numbers set directly (no intro count-up re-run), banner node + storefront
+   grid / #joblist swapped without re-rendering #app, so rain/neon never
+   restart and scroll holds; the board's filter input and its text survive
+   ticks. One calm border highlight when the storefront set changes, skipped
+   under prefers-reduced-motion (which already renders numbers static).
+
+**Raw verification (outputs in session log):** live `app.js` HTTP 200 and
+sha256-identical to the local build; contains `setInterval`, the 30s literal,
+the `createdAtNs` comparator, `visibilitychange`, and the minified forced-load
+calls. Behavior proven on the DEPLOYED site: with the tab genuinely hidden the
+poll made ZERO requests in a 40s watch (skip path); after simulating
+visibility the catch-up tick + interval produced 350 captured
+`/api/v3/canister/2f3bf…/query` POSTs (the full forced market walk per tick);
+page state after multiple ticks: scroll held, no re-render, storefronts/rail
+correct. A brand-new open job appearing without reload follows from the same
+path (every tick refetches the full job enumeration); EZ certifies that live
+when the next job is posted. Guards clean (ops-reconcile live 43/11/13+0);
+`dfx canister info`: escrow `0x1754339f…e2a5` / core `0xe16bc83b…323e`
+unchanged. Content state hash
+`0x4b6f8d91c44df760a5d14ad1d766d146fd97cfbb0053bfdaa807638ff7b97b60`.

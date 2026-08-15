@@ -4,7 +4,7 @@
 // Reuses the C1 connected identity (IndexedDB). Rendered into #job-actions so
 // re-renders don't disturb the rest of the job detail (incl. the spec banner).
 import { loadStoredIdentity, getMeta } from "./identity.js";
-import { placeBid, deliverWork, loadAcceptContext, acceptWithBond } from "./data.js";
+import { placeBid, deliverWork, loadAcceptContext, acceptWithBond, invalidateMarket } from "./data.js";
 import { esc, icp } from "./ui.js";
 import { toHex } from "./format.js";
 
@@ -188,7 +188,7 @@ function wire() {
     try {
       const res = await placeBid(st.identity, j.id);
       st.busy = false;
-      if (res.ok) { markBid(st.principal, j.id); st.bidPlaced = true; st.mode = "idle"; }
+      if (res.ok) { markBid(st.principal, j.id); st.bidPlaced = true; st.mode = "idle"; invalidateMarket(); }
       else if (res.error === "wrongStatus") { st.error = "This job is no longer open for bids."; st.mode = "idle"; }
       else st.error = bidErr(res);
       render();
@@ -203,7 +203,7 @@ function wire() {
     try {
       const res = await acceptWithBond(st.identity, j.id, st.acceptCtx);
       st.busy = false;
-      if (res.ok) { j.agent = st.principal; j.status = "assigned"; st.mode = "idle"; }
+      if (res.ok) { j.agent = st.principal; j.status = "assigned"; st.mode = "idle"; invalidateMarket(); }
       else st.error = acceptErr(res);
       render();
     } catch (e) { st.busy = false; st.error = e?.message ?? String(e); render(); }
@@ -230,7 +230,7 @@ function wire() {
     try {
       const res = await deliverWork(st.identity, j.id, st.hashBytes);
       st.busy = false;
-      if (res.ok) { j.status = "delivered"; st.mode = "idle"; }
+      if (res.ok) { j.status = "delivered"; st.mode = "idle"; invalidateMarket(); }
       else st.error = deliverErr(res);
       render();
     } catch (e) { st.busy = false; st.error = e?.message ?? String(e); render(); }

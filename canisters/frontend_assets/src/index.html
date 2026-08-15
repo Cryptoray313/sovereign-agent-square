@@ -163,6 +163,9 @@
     .store .jhead b { color: var(--accent); font-size: 1.02rem; }
     .store.browseall { display: flex; align-items: center; justify-content: center;
       text-align: center; border-style: dashed; }
+    /* One calm highlight when a poll changes the storefront set (skipped under
+       prefers-reduced-motion by the JS that adds the class). */
+    .stores.refreshed .store { border-color: var(--accent); }
     .jrow { display: flex; justify-content: space-between; font-size: 0.88rem;
       margin-top: 0.45rem; color: var(--muted); }
     .jrow code { color: var(--fg); }
