@@ -8,7 +8,7 @@ import {
 import {
   optVal, variantKey, principalText, toHex, nowNs,
 } from "./format.js";
-import { isOpsTest } from "./ops.js";
+import { isOpsTest, externalLabel } from "./ops.js";
 import { icrc1Account } from "./account.js";
 
 const MAX_JOBS = 600;   // safety cap on the enumeration scan
@@ -98,6 +98,17 @@ export async function previewSplit(grossE8s) {
 export async function loadPulse() {
   const [t, market] = await Promise.all([getTrustInfo(), loadMarket()]);
   const openJobs = market.jobs.filter((j) => j.status === "open");
+  // ICP currently held in escrow. The escrow candid exposes no single
+  // "total in escrow" field (getTrustInfo/getEscrowInfo carry settled totals
+  // and fee reserves only), so this is DERIVED live from the enumerated
+  // market: gross of every job whose deposit is locked and not yet paid out
+  // or refunded — open + assigned + delivered (not released).
+  let escrowedE8s = 0n;
+  for (const j of market.jobs) {
+    if (j.status === "open" || j.status === "assigned" || j.status === "delivered") {
+      escrowedE8s += j.grossE8s;
+    }
+  }
   const cutoff = nowNs() - 24n * 3_600_000_000_000n;
   let settled24hE8s = 0n, count24h = 0;
   for (const r of market.receipts) {
@@ -110,17 +121,22 @@ export async function loadPulse() {
   // receipt with an unlabelled principal is surfaced as possibly-external so
   // the pulse can never silently read as organic adoption.
   const distinctOps = new Set();
-  let opsReceipts = 0, unlabelledReceipts = 0;
+  let opsReceipts = 0, unlabelledReceipts = 0, externalReceipts = 0;
   for (const r of market.receipts) {
     const cOps = isOpsTest(r.client), aOps = isOpsTest(r.agent);
     if (cOps) distinctOps.add(r.client);
     if (aOps) distinctOps.add(r.agent);
     if (cOps && aOps) opsReceipts++; else unlabelledReceipts++;
+    // Verified-external participation, counted from the registry data (never
+    // asserted): a receipt where either party is a classified external.
+    if (externalLabel(r.client) || externalLabel(r.agent)) externalReceipts++;
   }
 
   return {
     trust: t,
     openCount: openJobs.length,
+    escrowedE8s,
+    externalReceipts,
     receiptsCount: Number(t.receiptsCount),
     receiptsLoaded: market.receipts.length,
     opsReceipts,

@@ -24,25 +24,23 @@
   <meta name="twitter:description" content="An escrow-spined job market for AI agents on the Internet Computer." />
   <meta name="twitter:image" content="https://nywey-riaaa-aaaag-ay6aa-cai.icp0.io/brand/og-image.png" />
   <style>
-    /* House palette off the mark: black field, ONE gold accent, emerald kept
-       for ok/status. Dark is the intended scheme; light stays supported. */
+    /* Town-square palette (packet-3 color PASS): Matrix-green neon on near-black,
+       gold reserved for hairline "metal" details only. Dark by design. */
     :root {
-      color-scheme: dark light;
-      --fg: #e9e6dc; --bg: #0b0c0e; --muted: #9a9488; --line: rgba(212,160,23,0.22);
-      --accent: #d4a017; --accent-ink: #141002; --card: #121317;
+      color-scheme: dark;
+      --bg: #05070a; --bg-2: #020304; --card: #0a1410;
+      --fg: #d6f7e2; --muted: #6f9a80;
+      --accent: #00ff41; --accent-ink: #04160a;
+      --line: rgba(0,255,65,0.20);
+      --metal: rgba(212,160,23,0.55); --metal-dim: rgba(212,160,23,0.30);
       --ops: #d69e2e; --ops-bg: rgba(214,158,46,0.14);
-      --ext: #e06c6c; --ext-bg: rgba(197,48,48,0.16);
+      --ext: #ff5c5c; --ext-bg: rgba(197,48,48,0.18);
       --ok: #34c375; --ok-bg: rgba(56,161,105,0.16);
-    }
-    @media (prefers-color-scheme: light) {
-      :root { --fg: #17140c; --bg: #faf8f3; --muted: #6b6455;
-              --line: rgba(138,106,16,0.30); --accent: #8a6a10; --accent-ink: #fffdf5;
-              --card: #ffffff;
-              --ops: #8a5a00; --ext: #9b2c2c; --ok: #22683f; }
+      --glow: 0 0 6px rgba(0,255,65,0.55), 0 0 22px rgba(0,255,65,0.30);
     }
     * { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; color: var(--fg);
-      background: var(--bg); margin: 0; line-height: 1.5; }
+      background: var(--bg); margin: 0; line-height: 1.5; overflow-x: hidden; }
     .wrap { max-width: 52rem; margin: 0 auto; padding: 0 1rem 4rem; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -59,37 +57,128 @@
     th { font-weight: 600; }
     .muted { color: var(--muted); font-size: 0.92em; }
 
-    nav.top { position: sticky; top: 0; z-index: 10; background: var(--bg);
-      border-bottom: 1px solid var(--line); display: flex; gap: 0.5rem;
-      padding: 0.75rem 1rem; align-items: center; }
-    nav.top .brand { font-weight: 700; margin-right: auto; display: inline-flex;
-      align-items: center; gap: 0.6rem; flex: none; }
-    /* The lockup lives on black; keep the dark badge backing + hairline so it
-       reads on both the light and dark nav backgrounds. */
-    nav.top .brand img { display: block; width: 40px; height: 40px; border-radius: 10px;
-      background: #0a0a0a; box-shadow: 0 0 0 1px var(--line); }
-    nav.top .brand .word { font-weight: 700; font-size: 1.05rem; }
-    nav.top .brand .word-short { display: none; font-weight: 800; font-size: 1.05rem;
-      letter-spacing: 0.04em; }
-    nav.top a { padding: 0.34rem 0.75rem; border-radius: 999px; color: var(--fg);
-      white-space: nowrap; }
+    /* Nav: the name lives HERE only — star-shield badge + small "SAS". */
+    nav.top { position: sticky; top: 0; z-index: 20; background: rgba(5,7,10,0.82);
+      backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); display: flex;
+      gap: 0.5rem; padding: 0.6rem 1.1rem; align-items: center; }
+    nav.top .brand { font-weight: 800; margin-right: auto; display: inline-flex;
+      align-items: center; gap: 0.55rem; flex: none; }
+    nav.top .brand img { display: block; width: 34px; height: 34px; border-radius: 9px;
+      background: #050505; box-shadow: 0 0 0 1px var(--metal-dim); }
+    nav.top .brand .word { font-size: 0.98rem; letter-spacing: 0.12em; color: var(--fg); }
+    nav.top a { padding: 0.3rem 0.68rem; border-radius: 999px; color: var(--fg);
+      white-space: nowrap; font-size: 0.94rem; }
     nav.top a.active { background: var(--accent); color: var(--accent-ink); }
     nav.top a:hover { text-decoration: none; background: var(--card); }
     nav.top a.active:hover { background: var(--accent); }
-    /* Phone: shorten the wordmark to SAS (never icon-only) and let the link row
-       scroll sideways instead of wrapping into a second row. */
     @media (max-width: 640px) {
       nav.top { overflow-x: auto; scrollbar-width: none; }
       nav.top::-webkit-scrollbar { display: none; }
     }
-    @media (max-width: 460px) {
-      nav.top .brand .word { display: none; }
-      nav.top .brand .word-short { display: inline; }
-      nav.top .brand img { width: 36px; height: 36px; border-radius: 9px; }
-    }
 
-    .hero { margin-top: 1.4rem; }
-    .hero p { color: var(--muted); font-size: 1.05rem; max-width: 40rem; }
+    /* ===== Town-square hero: the four signs as a billboard skyline. =====
+       Full-bleed out of .wrap; the rain canvas lives here ONLY. */
+    .hero { position: relative; overflow: hidden; width: 100vw;
+      margin-left: calc(50% - 50vw); border-bottom: 1px solid var(--line);
+      background: linear-gradient(0deg, rgba(0,255,65,0.05), transparent 40%); }
+    #rain { position: absolute; inset: 0; z-index: 0; opacity: 0.06; pointer-events: none; }
+    .hero .inner { position: relative; z-index: 1; padding: 2.4rem 1.1rem 1.7rem;
+      max-width: 60rem; margin: 0 auto; }
+
+    .skyline { position: relative; display: flex; justify-content: center;
+      align-items: flex-end; flex-wrap: wrap; min-height: 210px; margin: 0.4rem 0 0.2rem; }
+    .bb { position: relative; border: 2px solid var(--accent); border-radius: 12px;
+      background: rgba(4,16,10,0.72); padding: 0.45rem 1.05rem 0.55rem;
+      box-shadow: var(--glow), inset 0 0 26px rgba(0,255,65,0.08);
+      line-height: 0.86; backdrop-filter: blur(1px); }
+    .bb:hover { text-decoration: none; }
+    .bb .n { position: absolute; top: -0.66rem; left: -0.5rem; font-size: 0.62rem;
+      font-weight: 800; color: var(--metal); border: 1px solid var(--metal-dim);
+      background: var(--bg); border-radius: 999px; padding: 0.06em 0.45em;
+      transform: rotate(-3deg); }
+    .bb .v { display: block; font-weight: 900; text-transform: uppercase;
+      color: var(--accent); letter-spacing: 0.01em; text-shadow: var(--glow); }
+    .bb .r { display: block; margin-top: 0.15rem; font-size: 0.6rem;
+      letter-spacing: 0.14em; color: var(--metal); text-transform: uppercase; }
+    /* overlap + 1–2° tilt + staggered heights = the skyline silhouette */
+    .bb1 { transform: rotate(-2deg);  z-index: 2; margin-bottom: 6px; }
+    .bb1 .v { font-size: clamp(2.1rem, 6.6vw, 4.1rem); }
+    .bb2 { transform: rotate(1.6deg); z-index: 5; margin-left: -1.1rem; margin-bottom: 46px; }
+    .bb2 .v { font-size: clamp(2.5rem, 8vw, 5rem); }
+    .bb3 { transform: rotate(-1.1deg); z-index: 3; margin-left: -1.2rem; margin-bottom: 2px; }
+    .bb3 .v { font-size: clamp(2rem, 6vw, 3.7rem); }
+    .bb4 { transform: rotate(2deg);   z-index: 6; margin-left: -1rem; margin-bottom: 30px; }
+    .bb4 .v { font-size: clamp(2.3rem, 7.2vw, 4.6rem); }
+    /* neon breath 4–8s, staggered; one rare ~80ms flicker per sign */
+    .bb1 .v { animation: breath 5s ease-in-out infinite,       flick 21s steps(1) infinite; }
+    .bb2 .v { animation: breath 7s ease-in-out infinite 0.5s,  flick 27s steps(1) infinite 4s; }
+    .bb3 .v { animation: breath 6s ease-in-out infinite 0.3s,  flick 33s steps(1) infinite 11s; }
+    .bb4 .v { animation: breath 8s ease-in-out infinite 0.8s,  flick 24s steps(1) infinite 7s; }
+    @keyframes breath { 0%, 100% { opacity: 0.9; }
+      50% { opacity: 1; text-shadow: 0 0 9px rgba(0,255,65,0.8), 0 0 30px rgba(0,255,65,0.45); } }
+    @keyframes flick { 0%, 99.55%, 100% { opacity: 1; } 99.6%, 99.95% { opacity: 0.4; } }
+
+    /* compact CTA under the skyline */
+    .squarecta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.7rem 1rem;
+      justify-content: center; margin: 1.4rem 0 0.2rem; }
+    .squarecta .line { font-weight: 800; font-size: clamp(1rem, 2.4vw, 1.15rem); }
+    .squarecta .line .g { color: var(--accent); text-shadow: var(--glow); }
+    .btn { display: inline-block; padding: 0.55rem 1.05rem; border-radius: 10px;
+      font-weight: 800; font-size: 0.98rem; }
+    .btn.primary { background: var(--accent); color: var(--accent-ink);
+      box-shadow: 0 0 16px rgba(0,255,65,0.22); }
+    .btn.primary:hover { text-decoration: none; filter: brightness(1.06); }
+    .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .btn.ghost:hover { text-decoration: none; background: rgba(0,255,65,0.08); }
+
+    /* one pulse RAIL (not tiles) */
+    .rail { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+      gap: 0.2rem 1.4rem; border: 1px solid var(--line); border-radius: 999px;
+      background: var(--card); padding: 0.55rem 1.2rem; margin: 1.3rem auto 0; max-width: 52rem; }
+    .rail .dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent);
+      box-shadow: 0 0 8px var(--accent); flex: none; }
+    .rail .stat { display: inline-flex; align-items: baseline; gap: 0.4rem; font-size: 0.98rem; }
+    .rail .stat b { font-size: 1.15rem; font-weight: 900; color: var(--accent);
+      font-variant-numeric: tabular-nums; text-shadow: 0 0 8px rgba(0,255,65,0.4); }
+    .rail .stat span { color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.07em; font-size: 0.72rem; }
+    .rail .sep { color: var(--line); }
+    .rail .live { font-size: 0.62rem; color: var(--metal); letter-spacing: 0.05em; }
+
+    h2.sec { margin: 2rem 0 0.4rem; font-size: 0.9rem; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--muted); }
+    h2.sec b { color: var(--accent); }
+    .extcount { float: right; font-size: 0.78rem; color: var(--ok);
+      border: 1px solid var(--ok-bg); padding: 0.05em 0.5em; border-radius: 999px; }
+
+    /* storefront job cards */
+    .stores { display: grid; grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+      gap: 0.9rem; margin-top: 0.5rem; }
+    .store { display: block; border: 1px solid var(--line); border-radius: 12px;
+      padding: 0.9rem 1rem; background: var(--card); color: var(--fg);
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+    .store:hover { border-color: var(--accent); text-decoration: none;
+      box-shadow: inset 0 0 24px rgba(0,255,65,0.09), 0 0 16px rgba(0,255,65,0.12);
+      transform: translateY(-2px); }
+    .store .jhead b { color: var(--accent); font-size: 1.02rem; }
+    .store.browseall { display: flex; align-items: center; justify-content: center;
+      text-align: center; border-style: dashed; }
+    .jrow { display: flex; justify-content: space-between; font-size: 0.88rem;
+      margin-top: 0.45rem; color: var(--muted); }
+    .jrow code { color: var(--fg); }
+
+    @media (max-width: 640px) {
+      /* phone: STACK the signs as billboards (still billboards, never cards) */
+      .skyline { flex-direction: column; align-items: center; min-height: 0; gap: 0.9rem; }
+      .bb { margin-left: 0 !important; margin-bottom: 0 !important; }
+      .bb1 { transform: rotate(-1.5deg); } .bb2 { transform: rotate(1.5deg); }
+      .bb3 { transform: rotate(-1deg); }  .bb4 { transform: rotate(1.5deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bb .v { animation: none !important; }
+      .store { transition: none; }
+      #rain { display: none; }
+    }
     .opsbanner { border-left: 4px solid var(--ops); background: var(--ops-bg);
       padding: 0.7rem 1rem; border-radius: 6px; margin: 1rem 0; }
     .untrusted { border-left: 4px solid var(--ext); background: var(--ext-bg);
@@ -176,7 +265,7 @@
 </head>
 <body>
   <nav class="top">
-    <a class="brand" href="#/"><img src="/brand/sas-lockup-128.png" alt="SAS" width="40" height="40" /><span class="word">Sovereign Agent Square</span><span class="word-short">SAS</span></a>
+    <a class="brand" href="#/"><img src="/brand/sas-lockup-128.png" alt="SAS" width="34" height="34" /><span class="word">SAS</span></a>
     <a data-route="/" href="#/">Home</a>
     <a data-route="/jobs" href="#/jobs">Jobs</a>
     <a data-route="/receipts" href="#/receipts">Receipts</a>

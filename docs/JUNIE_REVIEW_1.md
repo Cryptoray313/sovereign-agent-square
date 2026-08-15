@@ -846,3 +846,55 @@ badges, untrusted-content banner, footer custody copy all intact; zero
 screenshot-verified below 460 CSS px — desktop Chrome's window floor is
 ~500px; check on a real phone. That and the overall "does it feel like a
 house" call are yours. Not self-certifying.
+
+## X. Packet-4 "Town Square" home (2026-08-15, layout locked by EZ — for overseer re-check)
+
+Built the accepted packet-4 skyline as the real home. Frontend-only
+(`src/index.html` tokens/chrome, `src/app.js` renderHome, new dependency-free
+`src/lib/square.js` for rain + count-up). Escrow/core untouched.
+
+**Layout (as locked):** name demoted to nav (star-shield badge + `SAS`); hero =
+READ SPEC · VERIFY · BID · GET PAID as overlapping neon billboards (1–2° tilts,
+staggered heights, number tags + route labels only), each to an existing route
+(`#/jobs` / `./trust.html` / `#/connect` / `#/receipts`); compact CTA ("Bring
+your agent. Pick a job. Come get paid." + Browse jobs primary + Connect ghost);
+ONE pulse rail; live storefront grid (5 + browse-all); no mockup ref strip.
+Phone stacks the signs as billboards (verified at 390px, screenshot below).
+
+**Live data (nothing hardcoded):** rail bound to `loadPulse()`. New
+`escrowedE8s` field: the escrow candid has NO single total-in-escrow field
+(checked `getTrustInfo`/`getEscrowInfo` — settled totals + fee reserves only),
+so it is derived live from the enumerated market as the brief prescribes:
+Σ `grossE8s` over status ∈ {open, assigned, delivered}. Raw chain check this
+deploy: open = 815,000,000 (13 jobs) + assigned = 0 + delivered = 36,000,000
+(jobs #25/#30/#38) → **851,000,000 e8s = 8.51 ICP**, and the live rail renders
+exactly `13 open · 8.51 ICP escrowed · 43 receipts`. `externalReceipts` is
+likewise computed from registry data (renders `external count: 0`).
+
+**Honesty unchanged:** per-receipt ops banner (both branches, counts derived —
+live banner reads 43 of 43 / 11 internal accounts); three-state badge (a
+compact variant on storefront rows keeps the full registry label in the
+tooltip); untrusted banners; NET_FORMULA shown; footer names exactly the six
+agent-signed writes; zero "coming soon" (curl-checked).
+
+**Motion:** CSS breath 5/6/7/8s staggered + one ~80ms flicker per sign on long
+periods; rain canvas scoped to the hero at 6% opacity, 18fps, self-stopping on
+route change; `prefers-reduced-motion` disables rain + animations and renders
+rail numbers static.
+
+**Raw verification (outputs in session log):** live `index.html` HTTP 200 with
+skyline markup + six writes; live `app.js` HTTP 200 containing the verbs +
+rail bindings and ZERO occurrences of the poster's 13/8.15/6.40 as literals;
+three guards clean (ops-reconcile live: 43 receipts, 11 principals, 13
+ops-test + 0 external); `dfx canister info` post-deploy: escrow
+`0x1754339f…e2a5`, core `0xe16bc83b…323e` — unchanged. Content state hash
+`0xd97d55f6735ec5d4a33e3ac41778ff8b70ba2ba0e948d1dcde9f66af14e7d039`
+(48 assets). No console errors on the live page.
+
+**One mid-verify fix:** first deploy's storefront rows used the full-length
+registry badge and broke the card grid — replaced with the compact badge
+(state + tooltip), redeployed; the hash above is the fixed deploy.
+
+**Screenshots (of the DEPLOYED site):** desktop hero + rail + banner, desktop
+storefronts, phone 390px stacked billboards — attached to the EZ report.
+Stopping here for the overseer's independent re-check; not self-certified.

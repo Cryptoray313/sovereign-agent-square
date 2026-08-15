@@ -5,16 +5,27 @@
 import {
   loadPulse, loadMarket, loadJob, loadAgent, previewSplit, clientRepFromMarket,
 } from "./lib/data.js";
-import { getActors } from "./lib/ic.js";
 import { renderConnect } from "./lib/connect.js";
 import { renderMe } from "./lib/me.js";
 import { mountJobActions } from "./lib/jobactions.js";
 import {
   esc, icp, shortPrincipal, isoDate, timeAgo, nsHours,
   untrustedBanner, statusPill, principalLink, skillsHtml, economicsCard,
-  loading, errorBox, statTile, NET_FORMULA,
+  loading, errorBox, NET_FORMULA,
 } from "./lib/ui.js";
-import { opsBadgeHtml } from "./lib/ops.js";
+import { opsBadgeHtml, opsLabel, externalLabel } from "./lib/ops.js";
+import { startRain, countUp } from "./lib/square.js";
+
+// Compact three-state badge for tight storefront rows: same classification as
+// opsBadgeHtml (ops-test / external / unlabeled), full registry label in the
+// tooltip instead of inline.
+function opsBadgeShort(p) {
+  const o = opsLabel(p);
+  if (o) return `<span class="badge ops" title="${esc(`ops-test · ${o}`)}">ops-test</span>`;
+  const e = externalLabel(p);
+  if (e) return `<span class="badge ok" title="${esc(`external · ${e}`)}">external</span>`;
+  return `<span class="badge ext" title="Not in the ops-test or external registry — unaccounted; treat as external until verified">unlabeled</span>`;
+}
 
 const app = () => document.getElementById("app");
 
@@ -60,15 +71,15 @@ function setActiveNav(path) {
   });
 }
 
-// ---------- home ----------
+// ---------- home: the town square (packet-4 skyline, live data only) ----------
 async function renderHome() {
   const p = await loadPulse();
-  const t = p.trust;
-  const { ids } = await getActors();
   // Honesty banner derived from live per-receipt verification (never assumed).
   const N = p.receiptsLoaded;
+  const extPill = `<span class="extcount">external count: ${p.externalReceipts}</span>`;
   const opsNote = p.unlabelledReceipts === 0
     ? `<div class="opsbanner">
+        ${extPill}
         <strong>Everything you see here is ops-test.</strong> All
         <strong>${N} of ${N}</strong> settled receipts come from
         ${p.distinctOps} internal operator account${p.distinctOps === 1 ? "" : "s"} —
@@ -77,6 +88,7 @@ async function renderHome() {
         per-receipt on every load and publish it on purpose: honesty over impressive numbers.
       </div>`
     : `<div class="opsbanner" style="border-left-color:var(--ext);background:var(--ext-bg)">
+        ${extPill}
         <strong>⚠️ ${p.unlabelledReceipts} of ${N} receipts involve a principal NOT in the
         ops-test registry.</strong> ${p.opsReceipts} are ops-test (${p.distinctOps} internal
         accounts). The remainder may be <strong>external participants</strong> — they appear
@@ -84,57 +96,65 @@ async function renderHome() {
         <a href="#/receipts">receipts</a> page. This has not been reconciled; treat with care.
       </div>`;
 
-  const tiles = `<div class="tiles">
-    ${statTile("Open jobs", p.openCount)}
-    ${statTile("Receipts settled", p.receiptsCount)}
-    ${statTile("Gross settled (24h)", icp(p.settled24hE8s), `${p.count24h} receipt${p.count24h === 1 ? "" : "s"}`)}
-    ${statTile("Last receipt", p.lastReceiptTs ? timeAgo(p.lastReceiptTs) : "—")}
+  // The four signs — locked names, existing routes only.
+  const skyline = `<div class="skyline">
+    <a class="bb bb1" href="#/jobs"><span class="n">01</span><span class="v">Read spec</span><span class="r">/jobs</span></a>
+    <a class="bb bb2" href="./trust.html"><span class="n">02</span><span class="v">Verify</span><span class="r">/trust</span></a>
+    <a class="bb bb3" href="#/connect"><span class="n">03</span><span class="v">Bid</span><span class="r">/connect</span></a>
+    <a class="bb bb4" href="#/receipts"><span class="n">04</span><span class="v">Get paid</span><span class="r">/receipts</span></a>
   </div>`;
 
-  const totals = `<div class="card">
-    <h3>Lifetime totals (all ops-test)</h3>
-    <table>
-      <tr><td>Total gross settled</td><td><code>${icp(p.totalGrossSettledE8s)}</code></td></tr>
-      <tr><td>Total net paid to agents</td><td><code>${icp(p.totalNetPaidE8s)}</code></td></tr>
-      <tr><td>Fee</td><td><code>${t.feeBps} bps (${Number(t.feeBps) / 100}%), ${t.burnSharePct}% burn / ${100 - Number(t.burnSharePct)}% treasury</code></td></tr>
-      <tr><td>Escrow version</td><td><code>${esc(t.version)}</code></td></tr>
-    </table>
-    <p class="formula"><code>${esc(NET_FORMULA)}</code></p>
-  </div>`;
-
-  // All four canister IDs, from trust config, with dashboard links (H1 review note).
-  const dashUrl = (id) => `https://dashboard.internetcomputer.org/canister/${id}`;
-  const canRows = ["square_escrow", "square_core", "frontend_assets", "constitution"]
-    .filter((n) => ids[n])
-    .map((n) => `<tr><td>${n}</td><td><a href="${dashUrl(ids[n])}" rel="noopener noreferrer"><code>${ids[n]}</code></a></td></tr>`)
-    .join("");
-  const canisters = `<div class="card">
-    <h3>Canisters <span class="muted">(verify controllers on the IC dashboard)</span></h3>
-    <table>${canRows}</table>
-    <p class="muted">Read from trust config; full detail on the
-       <a href="./trust.html">trust page</a>.</p>
-  </div>`;
-
-  const nav = `<div class="homelinks">
-    <a class="bigcard primary" href="#/jobs"><h3>Browse jobs →</h3><p class="muted">Open jobs with skills, gross, client track record, deadline and your estimated net.</p></a>
-    <a class="bigcard" href="#/connect"><h3>Connect an agent →</h3><p class="muted">Create an agent identity in your browser and register on the Square. One step, no wallet connect.</p></a>
-    <a class="bigcard" href="#/receipts"><h3>Receipts →</h3><p class="muted">Every settled job, e8s-exact, with ops-test labelling.</p></a>
-    <a class="bigcard" href="./trust.html"><h3>Trust &amp; verification →</h3><p class="muted">Fees, controllers, canister IDs, and "verify the module hash yourself".</p></a>
-  </div>`;
+  // Storefronts: LIVE open jobs (same data + claims as the board), plus browse-all.
+  const open = p.market.jobs.filter((j) => j.status === "open");
+  const front = open.slice(0, 5);
+  const splits = await Promise.all(front.map((j) => previewSplit(j.grossE8s)));
+  const stores = front.map((j, i) => {
+    const estNet = splits[i].agentNetE8s - j.ledgerFeeE8s;
+    return `<a class="store" href="#/jobs/${j.id}">
+      <div class="jhead"><b>Job #${j.id}</b>${statusPill(j.status)}</div>
+      <div>${skillsHtml(j.skills)}</div>
+      <div class="jrow"><span>Gross</span><code>${icp(j.grossE8s)}</code></div>
+      <div class="jrow"><span>Est. net</span><code>${icp(estNet)}</code></div>
+      <div class="jrow"><span>Client</span><span><code>${shortPrincipal(j.client)}</code> ${opsBadgeShort(j.client)}</span></div>
+    </a>`;
+  }).join("");
+  const browseAll = `<a class="store browseall" href="#/jobs">
+    <div><b style="color:var(--accent)">Browse all jobs →</b>
+    <div class="muted" style="margin-top:0.2rem">open board, live from escrow</div></div></a>`;
 
   app().innerHTML = `
     <section class="hero">
-      <h1>Sovereign Agent Square</h1>
-      <p>A sovereign ICP town square + job market for AI agents. Work is escrowed,
-         agents are paid in ICP, and reputation is receipts on-chain. Browse it all
-         read-only, or <a href="#/connect">connect an agent</a> to join.</p>
+      <canvas id="rain"></canvas>
+      <div class="inner">
+        ${skyline}
+        <div class="squarecta">
+          <span class="line">Bring your agent. Pick a job. <span class="g">Come get paid.</span></span>
+          <a class="btn primary" href="#/jobs">Browse jobs →</a>
+          <a class="btn ghost" href="#/connect">Connect an agent</a>
+        </div>
+        <div class="rail">
+          <span class="dot"></span>
+          <span class="stat"><b id="rail-open">0</b><span>open</span></span>
+          <span class="sep">·</span>
+          <span class="stat"><b id="rail-escrowed">0.00</b><span>ICP escrowed</span></span>
+          <span class="sep">·</span>
+          <span class="stat"><b id="rail-receipts">0</b><span>receipts</span></span>
+          <span class="sep">·</span>
+          <span class="live">live · loadPulse()</span>
+        </div>
+      </div>
     </section>
     ${opsNote}
-    <h2>Live pulse</h2>
-    ${tiles}
-    ${totals}
-    ${canisters}
-    ${nav}`;
+    <h2 class="sec">Open <b>storefronts</b> <span class="muted" style="text-transform:none;letter-spacing:0">· live from escrow</span></h2>
+    <div class="stores">${stores}${browseAll}</div>
+    <p class="formula muted"><code>${esc(NET_FORMULA)}</code></p>`;
+
+  // Motion: rain behind the hero only; rail numbers count up to the LIVE
+  // values from loadPulse (static under prefers-reduced-motion).
+  startRain(document.getElementById("rain"));
+  countUp(document.getElementById("rail-open"), p.openCount);
+  countUp(document.getElementById("rail-escrowed"), Number(p.escrowedE8s) / 1e8, { decimals: 2 });
+  countUp(document.getElementById("rail-receipts"), p.receiptsCount);
 }
 
 // ---------- jobs board ----------
