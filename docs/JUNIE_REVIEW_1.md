@@ -939,3 +939,38 @@ when the next job is posted. Guards clean (ops-reconcile live 43/11/13+0);
 `dfx canister info`: escrow `0x1754339f…e2a5` / core `0xe16bc83b…323e`
 unchanged. Content state hash
 `0x4b6f8d91c44df760a5d14ad1d766d146fd97cfbb0053bfdaa807638ff7b97b60`.
+
+## Z. Six W1 spec bytes published (2026-08-15 — content publish only, no jobs)
+
+Per the W1 publish brief: byte-exact copies of the six W1-ICP specs staged in
+`openjob-specs/` (source: the EZ-transferred folder; the Pi was unreachable
+from this Mac, so the brief's scp path was fulfilled by a local raw-bytes
+drop — `cp -p`, no editor). **Integrity gate before build: 6/6
+`sha256(file) == filename`** (raw output in the session log; sizes
+733/801/771/733/697/766 matched as secondary).
+
+`build.mjs` (untouched) auto-published them: `dist/specs/by-hash/` now 29
+files (10 genesis + 13 W0 + 6 W1), `index.json` regenerated to 29 entries —
+not hand-edited. Deployed as a `frontend_assets` content sync ONLY: 54 assets,
+state hash `0x06a6e4b9da2d68340741ab1c1d1f246bdb65b0e6d82fb594cba1fdbaa161229d`.
+
+**Live proof (raw outputs in session log):** all six
+`/specs/by-hash/<hash>.md` → `HTTP/2 200` + `content-type: text/markdown`
+(IC-certified response headers), AND the live BYTES re-hash to their URL hash
+6/6. `dfx canister info` after deploy: escrow `0x1754339f…e2a5`, core
+`0xe16bc83b…323e` — unchanged. Three guards clean (ops-reconcile live
+43/11/13+0). Board/app.js/poll/me.js/data.js untouched — `9af7129`'s certified
+frontend code ships unchanged; only spec assets and this documentation moved.
+
+**Not done, by design:** no `createJob` (EZ curls the six 200s and posts;
+Junie creates the six 1.0 ICP jobs only after 200 + `sha256(body)==filename`),
+no wasm, no board changes. The six hashes for Junie's `createJob` set:
+
+```
+c102f01ea3576bd67f08d2b16dbf009338cb0a8d2338fd212bef904f041376ab  W1-ICP-01
+2bd35710dfabacacbb6e15672811bcad735d85682809ca8cd450445ddbe1ae72  W1-ICP-02
+2b99247e1c7cfea17a494cdb580bb088c1685e27562ba132240173f7d6e482d9  W1-ICP-03
+5378e8b8f00d73f0d0fa90c6bd1fcbab78bb95d1c6da2e9b84c8d7a7de12db13  W1-ICP-04
+d9b42648a3c3998972f454032af0eab503f12b8a63be9d148af4e837d7d0656f  W1-ICP-05
+cee4a73eae5621334d9cd752192656d5a2c3471e7601649053a4e2fbd00e661f  W1-ICP-06
+```
