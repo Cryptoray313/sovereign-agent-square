@@ -1009,3 +1009,37 @@ escrowed mid-test — the W1 jobs being posted were picked up by the 30s poll
 with no reload, the §Y mechanism working on real new jobs.
 
 Not self-certified — Junie hydrates 390 and 360 herself.
+
+## AB. Receipts mobile fix (2026-08-15 — ≤640px stacked receipt tables)
+
+**Problem (Junie, live at 390):** `#/receipts` scrollWidth 793 on a 390
+screen — the receipt-card `<table>`s' min-content width (long principal
+`<code>` values, the fee "(burn … / treasury …)" note, nowrap badges) forced
+horizontal overflow.
+
+**Fix (CSS only, scoped to `.card.receipt` at ≤640px — desktop tables and
+every other page untouched; nav from §AA untouched; board poll untouched):**
+rows stack label-over-value (`tr`/`td` display:block; the label cell becomes
+a small uppercase muted caption; hairline border per ROW not per cell);
+values wrap (`overflow-wrap: anywhere` on value cells, `white-space: normal`
+on code/principal links); the badge pill wraps to its own line — and for the
+long registry labels wraps internally too, since a pill wider than the
+viewport would itself force width (that is the one deliberate deviation from
+"badge stays nowrap": the PASS criterion wins). The `.formula` NET_FORMULA
+line and receipt fee notes get `overflow-wrap: anywhere` at ≤640; the filter
+input was already `width: 100%` border-box.
+
+**PASS measurement, live deployed `#/receipts` (raw in session log),
+same-origin-iframe method at exact widths:**
+
+```
+vw=390  scrollWidth=386  clientWidth=386  PASS=true  overwideTables=0 (of 43 cards)
+vw=360  scrollWidth=356  clientWidth=356  PASS=true  overwideTables=0 (of 43 cards)
+```
+
+scrollWidth == clientWidth at both widths — zero horizontal swipe.
+Guards clean; `dfx canister info`: escrow `0x1754339f…e2a5` / core
+`0xe16bc83b…323e` unchanged. Content state hash
+`0xb97fde019cf0373eb7b677895abfdba4696a33dc04bc6e34a704cab772af9b8c`.
+Screenshot of the stacked cards in the EZ report. Not self-certified —
+Junie hydrates 390 and 360 herself.

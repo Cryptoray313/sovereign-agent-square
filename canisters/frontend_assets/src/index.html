@@ -183,6 +183,29 @@
     /* One calm highlight when a poll changes the storefront set (skipped under
        prefers-reduced-motion by the JS that adds the class). */
     .stores.refreshed .store { border-color: var(--accent); }
+
+    /* ≤640px: receipt-card tables stack label-over-value so long <code>
+       values (principals, fee breakdown) can wrap instead of forcing the
+       table's min-content width past the viewport. Scoped to .card.receipt —
+       desktop tables and every other page are untouched. */
+    @media (max-width: 640px) {
+      .receipt table, .receipt tbody { display: block; width: 100%; }
+      .receipt tr { display: block; padding: 0.45rem 0;
+        border-bottom: 1px solid var(--line); }
+      .receipt tr:last-child { border-bottom: 0; }
+      .receipt td { display: block; border: 0; padding: 0; max-width: 100%; }
+      .receipt td:first-child { color: var(--muted); font-size: 0.76em;
+        text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.1rem; }
+      .receipt td + td { overflow-wrap: anywhere; }
+      .receipt td code, .receipt td a.pcode { overflow-wrap: anywhere;
+        white-space: normal; }
+      /* The badge pill wraps to its own line and, for the long registry
+         labels, wraps internally — it must never force page width. */
+      .receipt .badge { white-space: normal; }
+      /* Wide one-liners on the same page: the net formula and fee notes wrap. */
+      .formula code { overflow-wrap: anywhere; }
+      .receipt .muted { overflow-wrap: anywhere; }
+    }
     .jrow { display: flex; justify-content: space-between; font-size: 0.88rem;
       margin-top: 0.45rem; color: var(--muted); }
     .jrow code { color: var(--fg); }
