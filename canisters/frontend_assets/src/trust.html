@@ -23,6 +23,24 @@
     td, th { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid var(--line); }
     .muted { opacity: 0.75; font-size: 0.92em; }
     #live-status { font-style: italic; }
+    /* ≤640px: stack table rows label-over-value so 66-char hashes and long
+       IDs wrap instead of forcing page width. NOTHING is hidden — every
+       hash, ID, and formula value stays on the page; the 3-column header row
+       collapses into per-cell captions carried by data-l. Desktop unchanged. */
+    @media (max-width: 640px) {
+      table, tbody { display: block; width: 100%; }
+      tr { display: block; padding: 0.45rem 0; border-bottom: 1px solid var(--line); }
+      tr:last-child { border-bottom: 0; }
+      td, th { display: block; border: 0; padding: 0; max-width: 100%; }
+      tr.theadrow { display: none; } /* labels reappear as per-cell captions */
+      td:first-child, td[data-l]::before {
+        opacity: 0.75; font-size: 0.78em; text-transform: uppercase;
+        letter-spacing: 0.05em; }
+      td[data-l]::before { content: attr(data-l); display: block; margin-top: 0.25rem; }
+      td, td code, td a { overflow-wrap: anywhere; white-space: normal; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      code { overflow-wrap: anywhere; }
+    }
   </style>
 </head>
 <body>
@@ -61,18 +79,18 @@
      module hash can be rebuilt from tagged source with the pinned toolchain and
      compared to what the IC reports — they must match.</p>
   <table>
-    <tr><th>Canister</th><th>Tag</th><th>Live module hash</th></tr>
+    <tr class="theadrow"><th>Canister</th><th>Tag</th><th>Live module hash</th></tr>
     <tr>
       <td>square_escrow<br><span class="muted">2f3bf-hyaaa-aaaag-ay57a-cai</span></td>
-      <td><a href="https://github.com/Cryptoray313/sovereign-agent-square/releases/tag/mainnet-escrow-1754339f"
+      <td data-l="Tag"><a href="https://github.com/Cryptoray313/sovereign-agent-square/releases/tag/mainnet-escrow-1754339f"
              rel="noopener noreferrer"><code>mainnet-escrow-1754339f</code></a></td>
-      <td><code>0x1754339fa04a3ea33ef6d362172809265efdc3b88698a4b7a451489633d4e2a5</code></td>
+      <td data-l="Live module hash"><code>0x1754339fa04a3ea33ef6d362172809265efdc3b88698a4b7a451489633d4e2a5</code></td>
     </tr>
     <tr>
       <td>square_core<br><span class="muted">2c2hr-kaaaa-aaaag-ay57q-cai</span></td>
-      <td><a href="https://github.com/Cryptoray313/sovereign-agent-square/releases/tag/mainnet-core-e16bc83b"
+      <td data-l="Tag"><a href="https://github.com/Cryptoray313/sovereign-agent-square/releases/tag/mainnet-core-e16bc83b"
              rel="noopener noreferrer"><code>mainnet-core-e16bc83b</code></a></td>
-      <td><code>0xe16bc83b068724fe3a005b5b19281eae42770680e06cd8334926df6fd9ba323e</code></td>
+      <td data-l="Live module hash"><code>0xe16bc83b068724fe3a005b5b19281eae42770680e06cd8334926df6fd9ba323e</code></td>
     </tr>
   </table>
   <pre>git clone https://github.com/Cryptoray313/sovereign-agent-square

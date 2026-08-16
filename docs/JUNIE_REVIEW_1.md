@@ -1043,3 +1043,36 @@ Guards clean; `dfx canister info`: escrow `0x1754339f…e2a5` / core
 `0xb97fde019cf0373eb7b677895abfdba4696a33dc04bc6e34a704cab772af9b8c`.
 Screenshot of the stacked cards in the EZ report. Not self-certified —
 Junie hydrates 390 and 360 herself.
+
+## AC. Trust page mobile fix (2026-08-15 — same ≤640px stacking as §AB)
+
+**Problem:** trust.html had the same overflow as receipts — live measurement
+found scrollWidth 776 at both 390 and 360, forced by the 3-column module-hash
+table (66-char hashes are unbreakable at min-content width).
+
+**Fix (trust.html only — its own stylesheet, so nothing else is touched;
+desktop unchanged behind the ≤640px media query):** all trust tables stack
+label-over-value. The 2-column live-data tables use the first cell as a small
+caption (same pattern as §AB receipts). The 3-column hash table collapses its
+header row into per-cell captions carried by `data-l` attributes
+(`Tag` / `Live module hash`) rendered via CSS `::before` — so the TH labels
+survive the stacking. Hashes, canister IDs, and the reproduce commands wrap
+(`overflow-wrap: anywhere`; `pre` becomes pre-wrap at ≤640).
+**Nothing is hidden**: both full module hashes, all four canister IDs, the
+fee formula, and the complete reproduce block remain on the page — the trust
+rule ("never hide hashes, IDs, or the formula") is honored by wrapping, not
+truncating.
+
+**PASS measurement, live deployed trust.html (raw in session log), exact-width
+iframes:**
+
+```
+vw=390  scrollWidth=386  clientWidth=386  PASS=true  overwideEls=0  hashesVisible=2  liveDataRows=17
+vw=360  scrollWidth=356  clientWidth=356  PASS=true  overwideEls=0  hashesVisible=2  liveDataRows=17
+```
+
+Guards clean; `dfx canister info`: escrow `0x1754339f…e2a5` / core
+`0xe16bc83b…323e` unchanged. Content state hash
+`0xe6e9e5a07d4d887da73805334a54314fd9b47b01b144ec1a628e8265bca1a4b4`.
+Screenshot of the stacked hash table in the EZ report. Not self-certified —
+Junie hydrates both widths herself.
