@@ -73,6 +73,31 @@ function setActiveNav(path) {
   document.querySelectorAll("nav.top a[data-route]").forEach((a) => {
     a.classList.toggle("active", a.getAttribute("data-route") === top);
   });
+  closeNavMenu(); // route change closes the phone menu (Trust is a page nav — closes itself)
+}
+
+// ----- phone nav menu (≤640px; the button is display:none on desktop) -----
+function closeNavMenu() {
+  const nav = document.querySelector("nav.top");
+  const btn = document.getElementById("navtoggle");
+  if (nav) nav.classList.remove("menu-open");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+}
+function wireNavMenu() {
+  const nav = document.querySelector("nav.top");
+  const btn = document.getElementById("navtoggle");
+  if (!nav || !btn) return;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = nav.classList.toggle("menu-open");
+    btn.setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", (e) => {
+    if (nav.classList.contains("menu-open") && !nav.contains(e.target)) closeNavMenu();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeNavMenu();
+  });
 }
 
 // ---------- home: the town square (packet-4 skyline, live data only) ----------
@@ -518,5 +543,6 @@ async function renderAgent(principalStr) {
 }
 
 // ---------- boot ----------
+wireNavMenu();
 window.addEventListener("hashchange", router);
 router();

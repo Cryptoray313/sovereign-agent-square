@@ -974,3 +974,38 @@ c102f01ea3576bd67f08d2b16dbf009338cb0a8d2338fd212bef904f041376ab  W1-ICP-01
 d9b42648a3c3998972f454032af0eab503f12b8a63be9d148af4e837d7d0656f  W1-ICP-05
 cee4a73eae5621334d9cd752192656d5a2c3471e7601649053a4e2fbd00e661f  W1-ICP-06
 ```
+
+## AA. Mobile nav fix (2026-08-15 — ≤640px menu, for Junie's 390/360 hydration)
+
+**Problem (Junie, live-hydrated 390+360):** the ≤640px nav rule was
+`overflow-x: auto` — at 390px Connect clipped to "Co." and My agent / Trust
+sat offscreen behind a horizontal swipe.
+
+**Fix (CSS/HTML + minimal nav wiring; board poll and all render code from the
+certified `9af7129` line untouched):** the six links now live in a
+`.navlinks` container that is `display: contents` on desktop — the ≥641px
+layout is literally unchanged — and collapses behind a menu `<button>` at
+≤640px. Exactly Home / Jobs / Receipts / Connect / My agent / Trust, same
+hrefs, no new routes. One tap opens; tap outside closes; route change closes
+(hooked in `setActiveNav`, which every render calls — Trust is a page
+navigation and closes itself); Escape closes; the toggle is a real `<button>`
+with `aria-expanded` + `aria-controls`; active-link highlight works inside
+the menu. Open/close is instant (no animation), so `prefers-reduced-motion`
+needs no special casing. Existing tokens only — no identity restyle.
+
+**Raw verification (session log):** live `index.html` HTTP 200 containing the
+`navtoggle` button (`aria-expanded="false"`), the `navlinks` container, all
+six `data-route` links, the `menu-open` CSS, and ZERO occurrences of the old
+`overflow-x` nav rule; live `app.js` carries the Escape-close wiring.
+Functional smoke on the DEPLOYED site in a 390px same-origin iframe: nav
+renders brand + button only (nothing clipped), one tap opened the menu with
+all six links (Connect fully tappable, Home highlighted), outside tap closed
+it. Screenshot in the EZ report. Guards clean; `dfx canister info`: escrow
+`0x1754339f…e2a5` / core `0xe16bc83b…323e` unchanged. Content state hash
+`0xba0463fd00e94374dbe107984a69ebd01cf7e5c5ecb1444c4a8f41e78dd93f56`.
+
+*Side observation during the smoke:* the pulse rail read 17 open / 12.51 ICP
+escrowed mid-test — the W1 jobs being posted were picked up by the 30s poll
+with no reload, the §Y mechanism working on real new jobs.
+
+Not self-certified — Junie hydrates 390 and 360 herself.

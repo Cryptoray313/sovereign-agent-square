@@ -71,9 +71,26 @@
     nav.top a.active { background: var(--accent); color: var(--accent-ink); }
     nav.top a:hover { text-decoration: none; background: var(--card); }
     nav.top a.active:hover { background: var(--accent); }
+    /* Desktop: the links flow inline exactly as before (contents = no box). */
+    nav.top .navlinks { display: contents; }
+    nav.top .navtoggle { display: none; }
+    /* Phone (≤640px): links collapse behind a menu button — every link
+       tappable with NO horizontal swipe. Existing tokens only; open/close is
+       instant (no animation), so prefers-reduced-motion needs no override. */
     @media (max-width: 640px) {
-      nav.top { overflow-x: auto; scrollbar-width: none; }
-      nav.top::-webkit-scrollbar { display: none; }
+      nav.top { flex-wrap: nowrap; }
+      nav.top .navtoggle { display: inline-flex; align-items: center;
+        justify-content: center; width: 40px; height: 40px; flex: none;
+        background: var(--card); color: var(--fg); border: 1px solid var(--line);
+        border-radius: 10px; cursor: pointer; padding: 0; }
+      nav.top .navtoggle[aria-expanded="true"] { border-color: var(--accent);
+        color: var(--accent); }
+      nav.top .navlinks { display: none; position: absolute; top: 100%;
+        right: 0.6rem; flex-direction: column; gap: 0.15rem; min-width: 11.5rem;
+        background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+        padding: 0.45rem; box-shadow: 0 10px 30px rgba(0,0,0,0.55); }
+      nav.top.menu-open .navlinks { display: flex; }
+      nav.top .navlinks a { padding: 0.55rem 0.8rem; }
     }
 
     /* ===== Town-square hero: the four signs as a billboard skyline. =====
@@ -269,12 +286,17 @@
 <body>
   <nav class="top">
     <a class="brand" href="#/"><img src="/brand/sas-lockup-128.png" alt="SAS" width="34" height="34" /><span class="word">SAS</span></a>
-    <a data-route="/" href="#/">Home</a>
-    <a data-route="/jobs" href="#/jobs">Jobs</a>
-    <a data-route="/receipts" href="#/receipts">Receipts</a>
-    <a data-route="/connect" href="#/connect">Connect</a>
-    <a data-route="/me" href="#/me">My agent</a>
-    <a data-route="/trust" href="./trust.html">Trust</a>
+    <button class="navtoggle" id="navtoggle" aria-expanded="false" aria-controls="navlinks" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="navlinks" id="navlinks">
+      <a data-route="/" href="#/">Home</a>
+      <a data-route="/jobs" href="#/jobs">Jobs</a>
+      <a data-route="/receipts" href="#/receipts">Receipts</a>
+      <a data-route="/connect" href="#/connect">Connect</a>
+      <a data-route="/me" href="#/me">My agent</a>
+      <a data-route="/trust" href="./trust.html">Trust</a>
+    </div>
   </nav>
   <main class="wrap">
     <div id="app"></div>
