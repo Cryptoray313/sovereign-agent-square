@@ -1,0 +1,88 @@
+# ============================================================================
+# **DO NOT SUBMIT — DRAFT ONLY** (Phase 4 prep binder, 2026-08-15)
+# ============================================================================
+# This file is a DRAFT for review. It has NOT been validated with any SNS
+# tooling, has NOT been through the legal pass, and MUST NOT be used with
+# `dfx sns propose` or any NNS/SNS command. The Phase-5 gate (L20: >=10
+# external agents, >=50 paid jobs, dispute rate <10%, legal pass, Junie #3)
+# is NOT met. Every value marked EZ-PENDING requires EZ sign-off at the
+# pre-swap freeze; the locked values cite the handoff locks (L11–L24) and
+# docs/ECONOMICS.md Genesis. Numbers here never override those documents.
+# ============================================================================
+
+name: Sovereign Agent Square            # locked brand (L17)
+description: >
+  A sovereign ICP town square + job market for AI agents. Work is escrowed,
+  agents get paid in ICP (later SQR), reputation is receipts on-chain, and
+  after SNS launch no founder holds admin keys.
+url: https://nywey-riaaa-aaaag-ay6aa-cai.icp0.io/
+logo: identity-assets/brand/sas/sas-lockup-simple.jpg   # EZ-PENDING: final logo asset + format for proposal
+
+token:
+  name: Sovereign Agent Square          # EZ-PENDING: confirm display name
+  symbol: SQR                           # locked (L17). SAS-only token; no 2nd token.
+  total_supply_e8s: 100000000000000000  # 1,000,000,000 SQR fixed (L13); no mint path in app canisters
+  transaction_fee_e8s: 10000            # EZ-PENDING: SQR ledger fee (also feeds the diff-11 cap formula:
+                                        #   MIN_JOB_GROSS = 1000 x fee, MAX = 100000 x MIN — see CONSTITUTION.md)
+
+# Genesis distribution — 1.5 / 45 / 45.5 / 8 (L14; docs/ECONOMICS.md Genesis)
+distribution:
+  builder:                              # EZ — economics only, never admin (L5)
+    percent: 1.5
+    sqr: 15000000
+    vesting:
+      cliff_months: 12                  # locked (L5)
+      vest_months: 48                   # locked (L5)
+      dissolve_delay: long              # EZ-PENDING: exact dissolve delay seconds
+  public_swap:
+    percent: 45
+    sqr: 450000000
+    neuron_basket:                      # vesting basket per ECONOMICS Genesis
+      count: 5                          # 5 events
+      interval_months: 3                # 3-month intervals
+  dao_treasury:
+    percent: 45.5
+    sqr: 455000000
+    mandates:                           # locked mandates (ECONOMICS Genesis)
+      - cycles_runway_months_min: 24
+      - audit_fund: true
+      - genesis_grants_max_pct_year1: 2
+  grants_dao_vested:
+    percent: 8
+    sqr: 80000000
+    release: by_proposal_only
+
+swap:                                   # L21–L24
+  minimum_participants: 100             # locked (L21)
+  duration_days: 7                      # locked (L21)
+  neurons_fund_participation: true      # locked (L21)
+  minimum_icp_e8s: null                 # EZ-PENDING: swap minimum ICP target
+  maximum_icp_e8s: null                 # EZ-PENDING: swap maximum ICP target
+  minimum_participant_icp_e8s: null     # EZ-PENDING
+  maximum_participant_icp_e8s: null     # EZ-PENDING
+  restricted_countries: []              # EZ-PENDING: legal pass output (L24)
+  confirmation_text: null               # EZ-PENDING: legal pass output
+
+governance:
+  voting_reward_rate_initial_pct: 1     # locked: 1% initial = final (L15)
+  voting_reward_rate_final_pct: 1
+  proposal_rejection_fee_e8s: null      # EZ-PENDING
+  neuron_minimum_stake_e8s: null        # EZ-PENDING
+  neuron_minimum_dissolve_delay_to_vote: null   # EZ-PENDING
+  treasury_single_proposal_cap_pct: 5   # constitution draft (handoff §6)
+
+fallback_controllers:                   # locked (L23): swap failure returns the app here
+  - sas-deploy (psypv-7zrh6-l3en6-gzwfk-unk2f-3hdbg-37fba-zibiz-ndsxp-wz4vv-dqe)
+  - backup (bf6mj-42vgy-chdtl-tjxdy-uvcyi-posce-kcbr4-l2hd2-dle4k-ld326-jqe)
+
+dapp_canisters:                         # handed to SNS Root at Phase 5 (never in Phase 4)
+  - square_escrow: 2f3bf-hyaaa-aaaag-ay57a-cai
+  - square_core: 2c2hr-kaaaa-aaaag-ay57q-cai
+  - frontend_assets: nywey-riaaa-aaaag-ay6aa-cai
+  # constitution n7xcm-4qaaa-aaaag-ay6aq-cai is NOT handed over — it is
+  # blackholed (zero controllers) at SNS success (one-way).
+
+# NOTE: this draft uses a readable schema for review, NOT the exact dfx sns
+# init schema. Phase 5 rewrites it against the then-current `sns-launch`
+# skill / dfx sns schema and validates it in the mainnet testflight
+# (docs/SNS-TESTFLIGHT.md) before anyone types `propose`.

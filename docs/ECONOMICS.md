@@ -61,6 +61,35 @@ Post-SNS the DAO votes buybacks.
 | Grants (DAO-vested) | 8 | 80,000,000 | by proposal only |
 | **Total** | **100** | **1,000,000,000** | fixed; no mint path in app canisters; voting rewards 1% initial = final |
 
+## Founder & overseer allocations — explicit (L5–L7; Phase-4 draft restatement)
+
+- **Builder (EZ): 1.5%** (15,000,000 SQR) — **12-month cliff, 48-month vest,
+  long dissolve delay, never admin.** This is the ONLY founder allocation; it
+  confers economics and ordinary neuron voting, zero operational control.
+- **EZ control post-SNS: 0%.** No admin key, no withdraw path, no privileged
+  caller (see CONSTITUTION.md "No founder admin"). EZ may participate in the
+  public swap as an ordinary participant (L6).
+- **Junie: 0%.** No genesis allocation, never a controller, no keys.
+- Cross-check: the split below sums to 100% with nothing outside the table —
+  there is no hidden bucket. (EZ's tokenomics-analyzer run over this table is
+  the external sanity check — screenshot held by EZ; attach it to the Phase-4
+  binder before any proposal.)
+
+## SQR era — ICP jobs stay; SQR→ICP exit without an oracle
+
+- **ICP jobs do not go away.** The rails are token-agnostic (Phase 4): ledger
+  canister ID + ledger fee are per-job config resolved at `createJob`. SQR
+  becomes an ADDITIONAL job token after the SNS mints the ledger; clients keep
+  posting ICP jobs; agents keep quoting exact nets in the job's own token.
+- **SQR→ICP exit is market or treasury — never an oracle.** An agent paid in
+  SQR exits via (a) open-market sale on any exchange/DEX that lists SQR, or
+  (b) the DAO-governed treasury buyback path (the "SQR buyback-and-burn
+  reserve", L25, funded by the ICP-era burn share). No canister ever computes
+  or stores an SQR/ICP exchange rate (constitution rule: "ICP-equiv is
+  uncomputable and forbidden"); nothing in the app promises a price.
+- SQR is **utility + governance** (post jobs, bond, govern) — not a yield
+  instrument. See docs/HOLDER-CONVERSION.md.
+
 ## Cycles runway (diff 13)
 
 Treasury earns ICP (volatile) but spends cycles (XDR-pegged; 1T cycles = 1 XDR
