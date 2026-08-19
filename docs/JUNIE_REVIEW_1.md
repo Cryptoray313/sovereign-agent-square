@@ -1076,3 +1076,52 @@ Guards clean; `dfx canister info`: escrow `0x1754339f…e2a5` / core
 `0xe6e9e5a07d4d887da73805334a54314fd9b47b01b144ec1a628e8265bca1a4b4`.
 Screenshot of the stacked hash table in the EZ report. Not self-certified —
 Junie hydrates both widths herself.
+
+## AD. Step-0 local upgrade-args test — opCapE8s IS upgrade-tunable (2026-08-19)
+
+**Question (Junie expected FAIL):** on a Motoko persistent-actor-class upgrade,
+do new install args reach `cfg`, or does the old persisted cfg win?
+
+**Local-only procedure (no mainnet, no icp.yaml ic-block change):** fresh local
+replica via `scripts/deploy-local.sh` (real local ledger at ryjl3…);
+deployed escrow with `opCapE8s = 100_000_000`; created REAL state — job #0
+settled end-to-end (approve → createJob → bid → selectBid → bond approve →
+acceptJob → deliver → acceptDelivery → receipt #0: gross 10,000,000 / fee
+500,000 / net 9,500,000) plus job #1 left `open` (gross 5,000,000). Then an
+upgrade-mode install of the SAME wasm with new args. Exact command:
+
+```
+icp canister install square_escrow -e local --mode upgrade -y \
+  --args '(record { ledgerId = principal "ryjl3-tyaaa-aaaaa-aaaba-cai";
+                    opCapE8s = 500_000_000 : nat;
+                    minDeadlineNs = 60_000_000_000 : nat;
+                    reviewWindowNs = 259_200_000_000_000 : nat })'
+```
+
+**OUTCOME A — PASS (raw outputs in session log):**
+
+| Field | before | after |
+| --- | --- | --- |
+| opCapE8s | 100,000,000 | **500,000,000** ✅ new args won |
+| receiptsCount / receipt #0 | 1 · 10M/500k/9.5M | identical, same principals ✅ |
+| job #1 | open, 5M | open, 5M ✅ |
+| reserves (burn/treasury) | 300k / 200k | 300k / 200k ✅ |
+
+**Enforcement proof, not just display:** post-upgrade `createJob` with gross
+400,000,000 (over the OLD cap) → `ok = 2`; gross 600,000,000 (over the NEW
+cap) → `err invalidInput "gross above operational cap"`.
+
+**Same-wasm proof:** local module hash after the upgrade is
+`0x1754339fa04a3ea33ef6d362172809265efdc3b88698a4b7a451489633d4e2a5` —
+byte-identical to the LIVE mainnet escrow artifact. So the cap can be raised
+on mainnet with a plain upgrade-mode reinstall of the CURRENT wasm with new
+init args: **no code change, module hash stays 1754339f, no admin path
+involved** (install remains dual-controller-gated).
+
+**Mainnet untouched this run (verified after):** escrow `0x1754339f…e2a5` /
+core `0xe16bc83b…323e`; mainnet `opCapE8s` still 100,000,000. No jobs posted.
+The local replica is left RUNNING with this state for independent
+re-query (`icp canister call square_escrow getTrustInfo '()' -e local
+--query`); stop it with `icp network stop` when done.
+
+**STOPPED.** EZ decides mainnet approval; nothing further executed.
