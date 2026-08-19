@@ -10,7 +10,7 @@ one-way.
 | --- | --- |
 | FEE_RATE_CAP / DEFAULT | 1000 bps cap · 500 bps default (SNS tunes 0–cap, never above) |
 | BURN_SHARE_OF_FEE / FLOOR | 60% · floor 50% (burn can't be governed to zero) |
-| ICP caps: MIN / MAX_JOB_GROSS | 0.01 / 1,000 ICP (Phase-2 app-level operational cap: 1 ICP; Phase-3 raise to 5 ICP after Junie review #1) |
+| ICP caps: MIN / MAX_JOB_GROSS | 0.01 / 1,000 ICP (app-level operational cap: **5 ICP** — raised from the Phase-2 1 ICP on 2026-08-19 via same-wasm arg upgrade, EZ-approved after Junie's Step-0 PASS) |
 | SQR caps: MIN / MAX_JOB_GROSS | **RESOLVED (diff 11, fee-multiple denomination):** `MIN_JOB_GROSS(SQR) = 1000 × SQR_ledger_transfer_fee` · `MAX_JOB_GROSS(SQR) = 100000 × MIN`. Formula frozen; the absolute SQR numbers are **pending SQR float — EZ confirms pre-swap** (never derived from a price oracle; the constitution holds token-unit formulas only) |
 | DISPUTE_BOND_BPS / WINDOW | 500 bps of gross · 72h evidence |
 | POST_BOND / JOB_BOND | 0.001 / 0.01 ICP (per-token table like caps) |

@@ -1125,3 +1125,57 @@ re-query (`icp canister call square_escrow getTrustInfo '()' -e local
 --query`); stop it with `icp network stop` when done.
 
 **STOPPED.** EZ decides mainnet approval; nothing further executed.
+
+## AE. MAINNET cap raise 1 → 5 ICP — arg-only upgrade, same wasm (2026-08-19)
+
+EZ approved after the reviewed Step-0 PASS (§AD raw evidence file). Executed
+exactly as pinned; full raw outputs in the session log.
+
+**The command (shown in chat before running, GO-brief condition — the code
+diff is empty, the command was the review object):**
+
+```
+icp canister install square_escrow -e mainnet --mode upgrade -y --identity sas-deploy \
+  --args '(record { ledgerId = principal "ryjl3-tyaaa-aaaaa-aaaba-cai";
+                    opCapE8s = 500_000_000 : nat;
+                    minDeadlineNs = 3_600_000_000_000 : nat;
+                    reviewWindowNs = 259_200_000_000_000 : nat })'
+```
+
+The pinned mainnet record verbatim — **minDeadlineNs is the 1-hour value;
+the local 60s test value did not travel.**
+
+**Raw-verified after install (full records pasted in chat):**
+
+- `getTrustInfo` (mainnet, full record): `opCapE8s = 500_000_000` ·
+  `minDeadlineNs = 3_600_000_000_000` · `reviewWindowNs = 259_200_000_000_000`
+  · everything else byte-identical to the BEFORE record taken minutes prior
+  (receiptsCount 43, gross 587,000,000, net 557,650,000, reserves
+  17,610,000 / 11,740,000, bonds, fee fields, version string).
+- `canister status` (escrow): **Module hash UNCHANGED
+  `0x1754339fa04a3ea33ef6d362172809265efdc3b88698a4b7a451489633d4e2a5`**;
+  Controllers exactly `psypv-…-dqe` + `bf6mj-…-jqe` (dual, untouched);
+  freezing threshold 7,776,000 (90d) unchanged.
+- Core untouched: `dfx canister info 2c2hr…` →
+  `0xe16bc83b068724fe3a005b5b19281eae42770680e06cd8334926df6fd9ba323e`,
+  same dual controllers.
+- Jobs #71–#76 (full records): all still `open`, 100,000,000 e8s each,
+  spec hashes matching the six published W1 by-hash files, deposits intact.
+
+**Doc/frontend surfaces to 5 ICP:** icp.yaml ic-path init args (local test
+block untouched); SKILL.md job-size line (with "read it live from
+getTrustInfo"); CONSTITUTION.md §6 ICP-caps row; TRUST.md escrow row —
+served live at /trust.md (curl-verified "5 ICP cap"). The trust page and app
+render `opCapE8s` from `getTrustInfo` live, so they updated with the chain.
+Frontend content sync `0x7966868c…` (frontend module hash unchanged —
+asset server).
+
+**Not done, by design:** no job posted at any price — the 5.0-accept /
+5.01-reject boundary checks and the post are the overseer's, after her live
+review. All three guards clean (the forbidden-grep even caught and forced a
+reword of an icp.yaml comment during this pass — the guard bites).
+
+Repo tag `mainnet-cap-5icp` (annotated) on this commit per the GO brief —
+same wasm, so `mainnet-escrow-1754339f` remains the verify tag for the hash.
+
+**Cap shipped — review.**

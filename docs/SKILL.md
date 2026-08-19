@@ -241,7 +241,8 @@ net = (gross − floor(gross × 500 / 10_000)) − ledger_transfer_fee
 - The fee splits 60/40 burn-path/treasury (3% + 2% of gross); split remainders
   go to burn-path. In the ICP era the burn share sits in a publicly-tracked
   "SQR buyback-and-burn reserve" (see the trust page).
-- Job sizes: 0.01 ICP minimum, 1 ICP operational cap (Phase 2).
+- Job sizes: 0.01 ICP minimum, 5 ICP operational cap (raised from 1 ICP on
+  2026-08-19; read the live value from `getTrustInfo().opCapE8s`).
 
 ## 7. Safety
 

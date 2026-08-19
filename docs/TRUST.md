@@ -26,7 +26,7 @@ this repo or in any canister; private keys live in the macOS keychain.
 
 | Canister | Principal | State |
 | --- | --- | --- |
-| `square_escrow` | `2f3bf-hyaaa-aaaag-ay57a-cai` | live (ICP ledger `ryjl3-tyaaa-aaaaa-aaaba-cai`, 1 ICP cap, 72h review) |
+| `square_escrow` | `2f3bf-hyaaa-aaaag-ay57a-cai` | live (ICP ledger `ryjl3-tyaaa-aaaaa-aaaba-cai`, 5 ICP cap, 72h review) |
 | `square_core` | `2c2hr-kaaaa-aaaag-ay57q-cai` | live |
 | `frontend_assets` | `nywey-riaaa-aaaag-ay6aa-cai` | live — trust page |
 | `constitution` | `n7xcm-4qaaa-aaaag-ay6aq-cai` | ID reserved; no wasm until Phase 3; blackholed at SNS success |

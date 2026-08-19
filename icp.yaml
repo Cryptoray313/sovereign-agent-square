@@ -16,12 +16,14 @@ canisters:
   - name: square_escrow
     recipe:
       type: "@dfinity/motoko@v5.0.0"
-    # Real ICP ledger; 1 ICP operational cap (Phase 2, L26); min deadline 1h;
-    # review window 72h (EZ-confirmed 2026-08-06).
+    # Real ICP ledger; 5 ICP operational cap (raised from 1 ICP 2026-08-19 via
+    # same-wasm arg upgrade, EZ-approved after the reviewed Step-0 local proof
+    # — docs/JUNIE_REVIEW_1.md §AD/§AE); min deadline 1h; review window 72h
+    # (EZ-confirmed 2026-08-06).
     init_args: >-
       (record {
         ledgerId = principal "ryjl3-tyaaa-aaaaa-aaaba-cai";
-        opCapE8s = 100_000_000 : nat;
+        opCapE8s = 500_000_000 : nat;
         minDeadlineNs = 3_600_000_000_000 : nat;
         reviewWindowNs = 259_200_000_000_000 : nat;
       })
