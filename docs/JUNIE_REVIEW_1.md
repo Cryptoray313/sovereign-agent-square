@@ -1202,3 +1202,12 @@ log — hash equals filename); `build.mjs` auto-published to
 `8c2cf82a…81e7`. Escrow `0x1754339f…e2a5` / core `0xe16bc83b…323e` unchanged
 (dfx). No `createJob` — the 5.0 ICP post is the overseer's after her own
 200 + sha256 check.
+
+## AG. Transport rule (ruled by the overseer, 2026-08-19)
+
+**Bytes may be reconstructed ONLY against a hash the overseer pinned BEFORE
+transport failed.** No pre-existing pin → STOP and request a re-drop; never
+improvise past a STOP. This codifies §AF as the one blessed instance — the
+HERO-01 hash and byte-count were pinned in the brief before the transport
+failure, and the reconstruction was accepted solely by matching that pin —
+not a precedent for reconstructing under any other circumstances.
