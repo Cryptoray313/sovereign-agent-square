@@ -1179,3 +1179,26 @@ Repo tag `mainnet-cap-5icp` (annotated) on this commit per the GO brief —
 same wasm, so `mainnet-escrow-1754339f` remains the verify tag for the hash.
 
 **Cap shipped — review.**
+
+## AF. HERO-01 spec published (2026-08-19 — content publish only, no job)
+
+The Pi was unreachable (hotspot) and the chat attachment never materialized
+on disk, so the bytes were recovered from the in-chat paste and **arbitrated
+by the hash gate**: a candidate transcription was accepted ONLY because
+`sha256(bytes) == 8c2cf82ae4598a0daf558efee4f3457fc1ec39831adf085dcab3531c9fab81e7`
+at exactly **1530 bytes** (the brief's pinned size) — five other whitespace
+variants were computed and discarded on mismatch. A sha256 match is the
+content-addressing guarantee itself: these are provably the original bytes,
+not a reconstruction that "looks right."
+
+Pipeline as standard: gate re-run on the staged file (raw output in session
+log — hash equals filename); `build.mjs` auto-published to
+`dist/specs/by-hash/` + `index.json` (now **30 entries**, not hand-edited);
+`frontend_assets` content sync only — 55 assets, state hash
+`0xb6b868360bb64dcac1266f1a1244257827aab4d90b8e8ee1eb13ea24d9f4d786`.
+
+**Live proof (raw in session log):** the by-hash URL returns `HTTP/2 200` +
+`content-type: text/markdown`, and the LIVE response bytes re-hash to
+`8c2cf82a…81e7`. Escrow `0x1754339f…e2a5` / core `0xe16bc83b…323e` unchanged
+(dfx). No `createJob` — the 5.0 ICP post is the overseer's after her own
+200 + sha256 check.
